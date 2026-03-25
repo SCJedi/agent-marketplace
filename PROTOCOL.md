@@ -883,12 +883,78 @@ Artifact trust uses **curation + verification**:
 | **Light node** | Queries the network, publishes content | SDK only, no public endpoint needed |
 | **Gateway node** | Provides a REST API facade over the network | Public endpoint, caching, rate limiting |
 
-### 8.2 Discovery
+### 8.2 Peer Discovery
 
-Nodes discover each other through:
-1. **Bootstrap nodes** — Well-known initial nodes hardcoded in the SDK
-2. **Gossip protocol** — Nodes share peer lists with neighbors
-3. **Registry** — Optional central registry for discoverability (not required for operation)
+Nodes discover each other through Bitcoin-style peer-to-peer discovery. No central directory is required.
+
+#### Seed Nodes
+
+Every node ships with a hardcoded list of seed nodes (see `src/seeds.js`). These are only used for initial bootstrap — once a node knows other peers, it never needs seeds again.
+
+#### Peer Announce (`POST /peers/announce`)
+
+A node announces its existence to peers it knows about:
+
+```json
+{
+  "endpoint": "https://my-node.example.com",
+  "name": "MyNode",
+  "specialty": "code"
+}
+```
+
+The recipient adds the announcer to its peer table. Like Bitcoin's `addr` message.
+
+#### Peer Exchange (`GET /peers`)
+
+Any node can ask any other node "who else do you know?":
+
+```
+GET /peers
+```
+
+Returns:
+```json
+{
+  "success": true,
+  "data": [
+    { "endpoint": "https://node-a.example.com", "name": "NodeA", "specialty": "web", "last_seen": "2026-03-25T10:00:00Z" },
+    { "endpoint": "https://node-b.example.com", "name": "NodeB", "specialty": "code", "last_seen": "2026-03-25T09:55:00Z" }
+  ]
+}
+```
+
+This is how the network grows organically — each node only needs to know one peer to discover the rest.
+
+#### Bidirectional Exchange (`POST /peers/exchange`)
+
+Two nodes can exchange peer lists simultaneously:
+
+```json
+{
+  "peers": [
+    { "endpoint": "https://node-c.example.com", "name": "NodeC", "specialty": "data" }
+  ]
+}
+```
+
+Both sides learn about new peers. Like Bitcoin's `getaddr`/`addr` exchange.
+
+#### Health Checking and Peer Eviction
+
+Nodes periodically health-check their known peers (`GET /health`). Consecutive failures are tracked. After 10 consecutive failures, a peer is evicted from the peer table. This prevents the network from carrying dead nodes indefinitely while tolerating temporary outages.
+
+#### How the Network Forms
+
+1. Node starts, has no peers
+2. Connects to seed nodes from hardcoded list
+3. Asks each seed for their peers (`GET /peers`)
+4. Announces itself to all discovered peers (`POST /peers/announce`)
+5. Those peers add it to their lists
+6. New nodes joining later will discover it through peer exchange
+7. The full mesh forms without any central authority
+
+Once bootstrapped, a node persists its peer list in a SQLite `peers` table. On restart, it loads known peers from the database and skips the seed nodes entirely — just like Bitcoin nodes.
 
 ### 8.3 Replication
 

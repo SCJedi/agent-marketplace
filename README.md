@@ -201,6 +201,48 @@ Every provider and verifier carries a trust score (0.0-1.0) based on their track
 
 ---
 
+## Network Topology
+
+The network is **fully decentralized** — no central directory service is required.
+
+Nodes discover each other using Bitcoin-style peer-to-peer discovery:
+
+1. **Seed nodes** — Hardcoded bootstrap nodes for initial discovery (like Bitcoin's DNS seeds)
+2. **Peer announce** — Nodes announce themselves to peers they know (`POST /peers/announce`)
+3. **Peer exchange** — Nodes ask each other "who else do you know?" (`GET /peers`)
+4. **Health checking** — Dead peers are automatically evicted after repeated failures
+
+Once a node knows **one** peer, it can discover the entire network through peer exchange. Peer lists are persisted in SQLite, so restarts don't require re-discovery.
+
+### Peer Discovery Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/peers` | List this node's known peers |
+| `POST` | `/peers/announce` | Announce yourself to a node |
+| `POST` | `/peers/exchange` | Exchange peer lists bidirectionally |
+
+### Network Client
+
+Use `NetworkClient` (in `src/network-client.js`) to discover and query the entire network from any starting seed:
+
+```javascript
+const { NetworkClient } = require('./src/network-client');
+
+const client = new NetworkClient({
+  seeds: ['http://localhost:3001']  // Just one seed is enough
+});
+
+// Discover all nodes via peer crawling
+const nodes = await client.discoverNetwork();
+
+// Search across all nodes
+const results = await client.search('python auth');
+
+// Find cheapest provider for a URL
+const content = await client.smartFetch('https://example.com/article');
+```
+
 ## Project Structure
 
 ```
@@ -208,6 +250,17 @@ agent-marketplace/
   PROTOCOL.md          # Full protocol specification
   README.md            # This file
   LICENSE              # MIT License
+  src/
+    server.js          # Node server with peer discovery
+    db.js              # SQLite database (content, artifacts, peers)
+    discovery.js       # P2P peer discovery engine
+    network-client.js  # Agent-side multi-node client
+    seeds.js           # Hardcoded seed nodes
+    routes/            # API route handlers
+  bootstrap/
+    start.js           # Start a 3-node P2P demo network
+  tests/
+    peer-discovery.test.js  # P2P mesh formation tests (18 tests)
 ```
 
 ---
@@ -249,6 +302,7 @@ Agent Marketplace is an open protocol. Contributions are welcome.
 - [ ] Python SDK
 - [x] CLI tool
 - [x] Bootstrap network (3+ initial nodes)
+- [x] P2P peer discovery (Bitcoin-style, no central directory)
 - [ ] Verification system implementation
 - [ ] Layer 3 analytics dashboard
 - [ ] Protocol v1.0.0 (stable)

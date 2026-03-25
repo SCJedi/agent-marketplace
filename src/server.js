@@ -4,11 +4,14 @@ const fastify = require('fastify');
 const cors = require('@fastify/cors');
 const rateLimit = require('@fastify/rate-limit');
 const db = require('./db');
+const { PeerDiscovery } = require('./discovery');
 
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 
-async function build() {
+let discovery = null;
+
+async function build(options = {}) {
   const app = fastify({
     logger: {
       level: process.env.LOG_LEVEL || 'info'
@@ -27,9 +30,18 @@ async function build() {
     timeWindow: '1 minute'
   });
 
-  // Health endpoint
+  // Health endpoint — includes peer count for network visibility
   app.get('/health', async () => {
-    return { success: true, data: { status: 'ok', timestamp: new Date().toISOString() }, error: null };
+    const peerCount = db.getPeerCount();
+    return {
+      success: true,
+      data: {
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        peers: peerCount
+      },
+      error: null
+    };
   });
 
   // Register route modules
@@ -40,8 +52,25 @@ async function build() {
   await app.register(require('./routes/verify'));
   await app.register(require('./routes/nodes'));
 
+  // Peer discovery — start after server is listening
+  const selfEndpoint = process.env.PUBLIC_URL || `http://localhost:${PORT}`;
+  const seedNodes = options.seedNodes || (process.env.SEED_NODES ? process.env.SEED_NODES.split(',') : undefined);
+
+  discovery = new PeerDiscovery(db, selfEndpoint, {
+    name: options.name || process.env.NODE_NAME || 'node',
+    specialty: options.specialty || process.env.NODE_SPECIALTY || 'general',
+    seedNodes,
+    announceInterval: options.announceInterval,
+    discoveryInterval: options.discoveryInterval,
+    healthCheckInterval: options.healthCheckInterval,
+  });
+
+  // Expose discovery instance on app for testing
+  app.discovery = discovery;
+
   // Graceful shutdown
   const shutdown = () => {
+    if (discovery) discovery.stop();
     db.closeDb();
     process.exit(0);
   };
@@ -60,6 +89,8 @@ if (require.main === module) {
         process.exit(1);
       }
       app.log.info(`Agent Marketplace server listening on ${address}`);
+      // Start peer discovery after server is listening
+      if (discovery) discovery.start();
     });
   });
 }

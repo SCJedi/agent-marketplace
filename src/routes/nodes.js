@@ -75,6 +75,76 @@ async function nodeRoutes(fastify, options) {
       return reply.code(500).send({ success: false, data: null, error: err.message });
     }
   });
+
+  // ── Peer Discovery (P2P) ──────────────────────────────────────
+
+  // GET /peers — Returns this node's known peers (peer exchange).
+  // Any node can ask "who else do you know?"
+  fastify.get('/peers', async (request, reply) => {
+    try {
+      const peers = db.getPeers(true);
+      const peerList = peers.map(p => ({
+        endpoint: p.endpoint,
+        name: p.name,
+        specialty: p.specialty,
+        last_seen: p.last_seen
+      }));
+      return { success: true, data: peerList, error: null };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // POST /peers/announce — A peer announces itself to this node.
+  // Like Bitcoin's `addr` message.
+  fastify.post('/peers/announce', async (request, reply) => {
+    try {
+      const { endpoint, name, specialty } = request.body || {};
+      if (!endpoint) {
+        return reply.code(400).send({ success: false, data: null, error: 'endpoint is required' });
+      }
+      const peer = db.addPeer(endpoint, name || null, specialty || null, 'announce');
+      db.updatePeerAnnounced(endpoint);
+      return { success: true, data: { accepted: true, endpoint }, error: null };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // POST /peers/exchange — Bidirectional peer exchange.
+  // Node sends its peer list, receives this node's peer list.
+  // Both sides learn about new peers. Like Bitcoin's getaddr/addr.
+  fastify.post('/peers/exchange', async (request, reply) => {
+    try {
+      const { peers: incomingPeers } = request.body || {};
+
+      // Add any new peers from the incoming list
+      if (Array.isArray(incomingPeers)) {
+        for (const p of incomingPeers) {
+          const ep = p.endpoint || p;
+          if (ep) {
+            db.addPeer(ep, p.name || null, p.specialty || null, 'exchange');
+          }
+        }
+      }
+
+      // Return our peer list
+      const ourPeers = db.getPeers(true);
+      const peerList = ourPeers.map(p => ({
+        endpoint: p.endpoint,
+        name: p.name,
+        specialty: p.specialty,
+        last_seen: p.last_seen
+      }));
+
+      return { success: true, data: peerList, error: null };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
 }
 
 module.exports = nodeRoutes;

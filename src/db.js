@@ -169,6 +169,18 @@ function initTables() {
       owner_type TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS peers (
+      id TEXT PRIMARY KEY,
+      endpoint TEXT UNIQUE NOT NULL,
+      name TEXT,
+      specialty TEXT,
+      last_seen TEXT,
+      last_announced TEXT,
+      failures INTEGER DEFAULT 0,
+      discovered_from TEXT,
+      added_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 }
 
@@ -813,6 +825,73 @@ function getArtifactById(id) {
   return getDb().prepare(`SELECT * FROM artifacts WHERE id = ?`).get(id) || null;
 }
 
+// --- Peers (P2P Discovery) ---
+
+function addPeer(endpoint, name, specialty, discoveredFrom) {
+  const d = getDb();
+  const { v4: uuidv4 } = require('uuid');
+  const id = uuidv4();
+  try {
+    d.prepare(`
+      INSERT INTO peers (id, endpoint, name, specialty, discovered_from, last_seen)
+      VALUES (?, ?, ?, ?, ?, datetime('now'))
+    `).run(id, endpoint, name || null, specialty || null, discoveredFrom || null);
+    return d.prepare(`SELECT * FROM peers WHERE id = ?`).get(id);
+  } catch (e) {
+    // UNIQUE constraint — peer already exists, update info if provided
+    if (name || specialty) {
+      const sets = [];
+      const vals = [];
+      if (name) { sets.push('name = ?'); vals.push(name); }
+      if (specialty) { sets.push('specialty = ?'); vals.push(specialty); }
+      if (sets.length > 0) {
+        vals.push(endpoint);
+        d.prepare(`UPDATE peers SET ${sets.join(', ')} WHERE endpoint = ?`).run(...vals);
+      }
+    }
+    return d.prepare(`SELECT * FROM peers WHERE endpoint = ?`).get(endpoint);
+  }
+}
+
+function removePeer(endpoint) {
+  const d = getDb();
+  const result = d.prepare(`DELETE FROM peers WHERE endpoint = ?`).run(endpoint);
+  return result.changes > 0;
+}
+
+function getPeers(activeOnly = true) {
+  const d = getDb();
+  if (activeOnly) {
+    return d.prepare(`SELECT * FROM peers WHERE failures < 5 ORDER BY last_seen DESC`).all();
+  }
+  return d.prepare(`SELECT * FROM peers ORDER BY last_seen DESC`).all();
+}
+
+function getAllPeers() {
+  return getDb().prepare(`SELECT * FROM peers ORDER BY last_seen DESC`).all();
+}
+
+function getPeerByEndpoint(endpoint) {
+  return getDb().prepare(`SELECT * FROM peers WHERE endpoint = ?`).get(endpoint) || null;
+}
+
+function updatePeerSeen(endpoint) {
+  getDb().prepare(`UPDATE peers SET last_seen = datetime('now'), failures = 0 WHERE endpoint = ?`).run(endpoint);
+}
+
+function updatePeerAnnounced(endpoint) {
+  getDb().prepare(`UPDATE peers SET last_announced = datetime('now') WHERE endpoint = ?`).run(endpoint);
+}
+
+function incrementPeerFailure(endpoint) {
+  getDb().prepare(`UPDATE peers SET failures = failures + 1 WHERE endpoint = ?`).run(endpoint);
+}
+
+function getPeerCount() {
+  const result = getDb().prepare(`SELECT COUNT(*) as cnt FROM peers WHERE failures < 5`).get();
+  return result ? result.cnt : 0;
+}
+
 function closeDb() {
   if (db) { db.close(); db = null; }
 }
@@ -843,5 +922,8 @@ module.exports = {
   normalizeForHash,
   // Whitelist / Access control
   addContentWhitelist, removeContentWhitelist, getContentWhitelist, getContentById,
-  addArtifactWhitelist, removeArtifactWhitelist, getArtifactWhitelist, getArtifactById
+  addArtifactWhitelist, removeArtifactWhitelist, getArtifactWhitelist, getArtifactById,
+  // Peers (P2P Discovery)
+  addPeer, removePeer, getPeers, getAllPeers, getPeerByEndpoint,
+  updatePeerSeen, updatePeerAnnounced, incrementPeerFailure, getPeerCount
 };

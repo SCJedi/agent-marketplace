@@ -4,7 +4,6 @@ const { fork } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const config = require('./config');
-const { buildDirectory } = require('./directory');
 const seedData = require('./seed-data');
 const crypto = require('crypto');
 
@@ -22,7 +21,6 @@ for (const f of fs.readdirSync(dataDir)) {
 }
 
 const children = [];
-let directoryApp = null;
 
 async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -89,25 +87,29 @@ async function seedNode(endpoint, contentItems, artifacts, searchEntries) {
 }
 
 async function main() {
-  console.log('\n  Starting Agent Marketplace bootstrap network...\n');
+  console.log('\n  Starting Agent Marketplace P2P bootstrap network...\n');
 
-  // ── Step 1: Start directory service ─────────────────────────────
-  directoryApp = await buildDirectory();
-  await directoryApp.listen({ port: config.directory.port, host: '0.0.0.0' });
-  console.log(`  Directory service started on port ${config.directory.port}`);
+  // Build seed list — each node knows about the others
+  const allEndpoints = config.nodes.map(n => `http://localhost:${n.port}`);
 
-  // ── Step 2: Start marketplace nodes ─────────────────────────────
+  // ── Step 1: Start marketplace nodes (no central directory needed!) ──
   const nodeStats = [];
 
   for (const node of config.nodes) {
     const dbPath = path.resolve(PROJECT_ROOT, node.dbPath);
+    const otherSeeds = allEndpoints.filter(ep => ep !== `http://localhost:${node.port}`);
+
     const child = fork(path.join(PROJECT_ROOT, 'src', 'server.js'), [], {
       env: {
         ...process.env,
         PORT: String(node.port),
         DB_PATH: dbPath,
         LOG_LEVEL: 'warn',
-        HOST: '0.0.0.0'
+        HOST: '0.0.0.0',
+        PUBLIC_URL: `http://localhost:${node.port}`,
+        NODE_NAME: node.name,
+        NODE_SPECIALTY: node.specialty,
+        SEED_NODES: otherSeeds.join(',')
       },
       stdio: ['pipe', 'pipe', 'pipe', 'ipc']
     });
@@ -130,7 +132,7 @@ async function main() {
     console.log(`  ${node.name} started on port ${node.port}`);
   }
 
-  // ── Step 3: Seed data ───────────────────────────────────────────
+  // ── Step 2: Seed data ───────────────────────────────────────────
   console.log('\n  Seeding data...');
 
   // Seed WebClean (node1)
@@ -160,28 +162,38 @@ async function main() {
   );
   nodeStats.push(ds);
 
-  // ── Step 4: Register nodes with directory ───────────────────────
-  for (let i = 0; i < config.nodes.length; i++) {
-    const node = config.nodes[i];
-    const stats = nodeStats[i];
-    try {
-      await fetch(`http://localhost:${config.directory.port}/directory/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: node.name,
-          endpoint: `http://localhost:${node.port}`,
-          specialty: node.specialty,
-          description: node.description,
-          contentCount: stats.contentCount,
-          artifactCount: stats.artifactCount
-        }),
-        signal: AbortSignal.timeout(3000)
-      });
-    } catch {}
+  // ── Step 3: Wait for peer discovery to form the mesh ────────────
+  console.log('\n  Waiting for P2P mesh to form...');
+  await sleep(3000); // Give peer discovery time to bootstrap
+
+  // Verify peer discovery worked
+  let meshFormed = false;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    let allConnected = true;
+    for (const node of config.nodes) {
+      try {
+        const resp = await fetch(`http://localhost:${node.port}/peers`, {
+          signal: AbortSignal.timeout(2000)
+        });
+        const body = await resp.json();
+        const peers = body.data || [];
+        if (peers.length < config.nodes.length - 1) {
+          allConnected = false;
+          break;
+        }
+      } catch {
+        allConnected = false;
+        break;
+      }
+    }
+    if (allConnected) {
+      meshFormed = true;
+      break;
+    }
+    await sleep(1000);
   }
 
-  // ── Step 5: Print status dashboard ──────────────────────────────
+  // ── Step 4: Print status dashboard ──────────────────────────────
   const totalContent = nodeStats.reduce((s, n) => s + n.contentCount, 0);
   const totalArtifacts = nodeStats.reduce((s, n) => s + n.artifactCount, 0);
 
@@ -189,10 +201,12 @@ async function main() {
 
   console.log('');
   console.log('  \x1b[36m\x1b[1m' + '='.repeat(54) + '\x1b[0m');
-  console.log('  \x1b[36m\x1b[1m  AGENT MARKETPLACE \u2014 LOCAL BOOTSTRAP NETWORK\x1b[0m');
+  console.log('  \x1b[36m\x1b[1m  AGENT MARKETPLACE \u2014 P2P BOOTSTRAP NETWORK\x1b[0m');
   console.log('  \x1b[36m\x1b[1m' + '='.repeat(54) + '\x1b[0m');
   console.log('');
-  console.log(`  \x1b[1mDirectory:\x1b[0m  http://localhost:${config.directory.port}  \x1b[32m\u2713 running\x1b[0m`);
+  console.log(`  \x1b[1mTopology:\x1b[0m  Fully decentralized (no directory service)`);
+  console.log(`  \x1b[1mDiscovery:\x1b[0m Bitcoin-style peer exchange`);
+  console.log(`  \x1b[1mMesh:\x1b[0m      ${meshFormed ? '\x1b[32mFORMED\x1b[0m' : '\x1b[33mFORMING...\x1b[0m'}`);
   console.log('');
   console.log('  \x1b[1mNodes:\x1b[0m');
   for (let i = 0; i < config.nodes.length; i++) {
@@ -218,9 +232,6 @@ async function shutdown() {
   console.log('\n  Shutting down...');
   for (const child of children) {
     try { child.kill('SIGTERM'); } catch {}
-  }
-  if (directoryApp) {
-    try { await directoryApp.close(); } catch {}
   }
   console.log('  All nodes stopped.\n');
 }
