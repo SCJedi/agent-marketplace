@@ -36,7 +36,9 @@ function initTables() {
       provider_id TEXT,
       price REAL DEFAULT 0,
       token_cost_saved REAL DEFAULT 0,
-      content_hash TEXT
+      content_hash TEXT,
+      visibility TEXT DEFAULT 'public',
+      owner_key TEXT
     );
 
     CREATE INDEX IF NOT EXISTS idx_content_url ON content(url);
@@ -83,11 +85,27 @@ function initTables() {
       verified INTEGER DEFAULT 0,
       download_count INTEGER DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      visibility TEXT DEFAULT 'public',
+      owner_key TEXT
     );
 
     CREATE INDEX IF NOT EXISTS idx_artifacts_slug ON artifacts(slug);
     CREATE INDEX IF NOT EXISTS idx_artifacts_category ON artifacts(category);
+
+    CREATE TABLE IF NOT EXISTS content_whitelist (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      content_id TEXT NOT NULL,
+      authorized_key TEXT NOT NULL,
+      UNIQUE(content_id, authorized_key)
+    );
+
+    CREATE TABLE IF NOT EXISTS artifact_whitelist (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      artifact_id TEXT NOT NULL,
+      authorized_key TEXT NOT NULL,
+      UNIQUE(artifact_id, authorized_key)
+    );
 
     CREATE TABLE IF NOT EXISTS nodes (
       id TEXT PRIMARY KEY,
@@ -156,9 +174,17 @@ function initTables() {
 
 // --- Content CRUD ---
 
-function contentCheck(url) {
+function contentCheck(url, callerKey) {
   const d = getDb();
-  const rows = d.prepare(`SELECT id, price, fetched_at, provider_id FROM content WHERE url = ?`).all(url);
+  let sql = `SELECT id, price, fetched_at, provider_id FROM content WHERE url = ?`;
+  const params = [url];
+  if (callerKey) {
+    sql += ` AND (visibility = 'public' OR (visibility = 'private' AND owner_key = ?) OR (visibility = 'whitelist' AND (owner_key = ? OR id IN (SELECT content_id FROM content_whitelist WHERE authorized_key = ?))))`;
+    params.push(callerKey, callerKey, callerKey);
+  } else {
+    sql += ` AND visibility = 'public'`;
+  }
+  const rows = d.prepare(sql).all(...params);
   if (rows.length === 0) return { available: false, price: 0, freshness: null, providers: 0 };
   const newest = rows.reduce((a, b) => (a.fetched_at > b.fetched_at ? a : b));
   return {
@@ -169,9 +195,18 @@ function contentCheck(url) {
   };
 }
 
-function contentFetch(url) {
+function contentFetch(url, callerKey) {
   const d = getDb();
-  return d.prepare(`SELECT * FROM content WHERE url = ? ORDER BY fetched_at DESC LIMIT 1`).get(url) || null;
+  let sql = `SELECT * FROM content WHERE url = ?`;
+  const params = [url];
+  if (callerKey) {
+    sql += ` AND (visibility = 'public' OR (visibility = 'private' AND owner_key = ?) OR (visibility = 'whitelist' AND (owner_key = ? OR id IN (SELECT content_id FROM content_whitelist WHERE authorized_key = ?))))`;
+    params.push(callerKey, callerKey, callerKey);
+  } else {
+    sql += ` AND visibility = 'public'`;
+  }
+  sql += ` ORDER BY fetched_at DESC LIMIT 1`;
+  return d.prepare(sql).all(...params)[0] || null;
 }
 
 function contentPublish(record) {
@@ -179,8 +214,8 @@ function contentPublish(record) {
   const { v4: uuidv4 } = require('uuid');
   const id = record.id || uuidv4();
   d.prepare(`
-    INSERT INTO content (id, url, source_hash, fetched_at, content_text, content_structured, content_links, content_metadata, provider_id, price, token_cost_saved)
-    VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO content (id, url, source_hash, fetched_at, content_text, content_structured, content_links, content_metadata, provider_id, price, token_cost_saved, visibility, owner_key)
+    VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id,
     record.url,
@@ -191,7 +226,9 @@ function contentPublish(record) {
     typeof record.content_metadata === 'object' ? JSON.stringify(record.content_metadata) : (record.content_metadata || null),
     record.provider_id || null,
     record.price || 0,
-    record.token_cost_saved || 0
+    record.token_cost_saved || 0,
+    record.visibility || 'public',
+    record.owner_key || null
   );
   return d.prepare(`SELECT * FROM content WHERE id = ?`).get(id);
 }
@@ -204,8 +241,8 @@ function artifactCreate(record) {
   const id = record.id || uuidv4();
   const slug = record.slug;
   d.prepare(`
-    INSERT INTO artifacts (id, slug, category, name, version, description, tags, files, dependencies, license, price, build_cost, preview_url, provenance_url)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO artifacts (id, slug, category, name, version, description, tags, files, dependencies, license, price, build_cost, preview_url, provenance_url, visibility, owner_key)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id, slug, record.category || null, record.name,
     record.version || '1.0.0', record.description || null,
@@ -214,13 +251,24 @@ function artifactCreate(record) {
     JSON.stringify(record.dependencies || []),
     record.license || 'MIT',
     record.price || 0, record.build_cost || 0,
-    record.preview_url || null, record.provenance_url || null
+    record.preview_url || null, record.provenance_url || null,
+    record.visibility || 'public',
+    record.owner_key || null
   );
   return d.prepare(`SELECT * FROM artifacts WHERE id = ?`).get(id);
 }
 
-function artifactGetBySlug(slug) {
-  return getDb().prepare(`SELECT * FROM artifacts WHERE slug = ?`).get(slug) || null;
+function artifactGetBySlug(slug, callerKey) {
+  const d = getDb();
+  let sql = `SELECT * FROM artifacts WHERE slug = ?`;
+  const params = [slug];
+  if (callerKey) {
+    sql += ` AND (visibility = 'public' OR (visibility = 'private' AND owner_key = ?) OR (visibility = 'whitelist' AND (owner_key = ? OR id IN (SELECT artifact_id FROM artifact_whitelist WHERE authorized_key = ?))))`;
+    params.push(callerKey, callerKey, callerKey);
+  } else {
+    sql += ` AND visibility = 'public'`;
+  }
+  return d.prepare(sql).all(...params)[0] || null;
 }
 
 function artifactUpdate(slug, updates) {
@@ -253,10 +301,16 @@ function artifactIncrementDownload(slug) {
 
 // --- Search ---
 
-function searchContent(query, maxAge) {
+function searchContent(query, maxAge, callerKey) {
   const d = getDb();
   let sql = `SELECT *, 'content' as type FROM content WHERE (url LIKE ? OR content_text LIKE ? OR content_metadata LIKE ?)`;
   const params = [`%${query}%`, `%${query}%`, `%${query}%`];
+  if (callerKey) {
+    sql += ` AND (visibility = 'public' OR (visibility = 'private' AND owner_key = ?) OR (visibility = 'whitelist' AND (owner_key = ? OR id IN (SELECT content_id FROM content_whitelist WHERE authorized_key = ?))))`;
+    params.push(callerKey, callerKey, callerKey);
+  } else {
+    sql += ` AND visibility = 'public'`;
+  }
   if (maxAge) {
     sql += ` AND fetched_at >= datetime('now', ?)`;
     params.push(`-${maxAge} days`);
@@ -264,10 +318,16 @@ function searchContent(query, maxAge) {
   return d.prepare(sql).all(...params);
 }
 
-function searchArtifacts(query, category, language, license) {
+function searchArtifacts(query, category, language, license, callerKey) {
   const d = getDb();
   let sql = `SELECT *, 'artifact' as type FROM artifacts WHERE (name LIKE ? OR description LIKE ? OR tags LIKE ?)`;
   const params = [`%${query}%`, `%${query}%`, `%${query}%`];
+  if (callerKey) {
+    sql += ` AND (visibility = 'public' OR (visibility = 'private' AND owner_key = ?) OR (visibility = 'whitelist' AND (owner_key = ? OR id IN (SELECT artifact_id FROM artifact_whitelist WHERE authorized_key = ?))))`;
+    params.push(callerKey, callerKey, callerKey);
+  } else {
+    sql += ` AND visibility = 'public'`;
+  }
   if (category) { sql += ` AND category = ?`; params.push(category); }
   if (language) { sql += ` AND tags LIKE ?`; params.push(`%${language}%`); }
   if (license) { sql += ` AND license = ?`; params.push(license); }
@@ -641,8 +701,8 @@ function contentPublishWithHash(record) {
     : null;
 
   d.prepare(`
-    INSERT INTO content (id, url, source_hash, fetched_at, content_text, content_structured, content_links, content_metadata, provider_id, price, token_cost_saved, content_hash)
-    VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO content (id, url, source_hash, fetched_at, content_text, content_structured, content_links, content_metadata, provider_id, price, token_cost_saved, content_hash, visibility, owner_key)
+    VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id,
     record.url,
@@ -654,7 +714,9 @@ function contentPublishWithHash(record) {
     record.provider_id || null,
     record.price || 0,
     record.token_cost_saved || 0,
-    contentHash
+    contentHash,
+    record.visibility || 'public',
+    record.owner_key || null
   );
   return d.prepare(`SELECT * FROM content WHERE id = ?`).get(id);
 }
@@ -709,6 +771,48 @@ function getAllProvidersForUrl(url) {
   return d.prepare(`SELECT id, provider_id, content_text, content_hash, price, fetched_at FROM content WHERE url = ? ORDER BY fetched_at DESC`).all(url);
 }
 
+// --- Whitelist management ---
+
+function addContentWhitelist(contentId, authorizedKey) {
+  const d = getDb();
+  d.prepare(`INSERT OR IGNORE INTO content_whitelist (content_id, authorized_key) VALUES (?, ?)`).run(contentId, authorizedKey);
+}
+
+function removeContentWhitelist(contentId, authorizedKey) {
+  const d = getDb();
+  const result = d.prepare(`DELETE FROM content_whitelist WHERE content_id = ? AND authorized_key = ?`).run(contentId, authorizedKey);
+  return result.changes > 0;
+}
+
+function getContentWhitelist(contentId) {
+  const d = getDb();
+  return d.prepare(`SELECT authorized_key FROM content_whitelist WHERE content_id = ?`).all(contentId).map(r => r.authorized_key);
+}
+
+function getContentById(id) {
+  return getDb().prepare(`SELECT * FROM content WHERE id = ?`).get(id) || null;
+}
+
+function addArtifactWhitelist(artifactId, authorizedKey) {
+  const d = getDb();
+  d.prepare(`INSERT OR IGNORE INTO artifact_whitelist (artifact_id, authorized_key) VALUES (?, ?)`).run(artifactId, authorizedKey);
+}
+
+function removeArtifactWhitelist(artifactId, authorizedKey) {
+  const d = getDb();
+  const result = d.prepare(`DELETE FROM artifact_whitelist WHERE artifact_id = ? AND authorized_key = ?`).run(artifactId, authorizedKey);
+  return result.changes > 0;
+}
+
+function getArtifactWhitelist(artifactId) {
+  const d = getDb();
+  return d.prepare(`SELECT authorized_key FROM artifact_whitelist WHERE artifact_id = ?`).all(artifactId).map(r => r.authorized_key);
+}
+
+function getArtifactById(id) {
+  return getDb().prepare(`SELECT * FROM artifacts WHERE id = ?`).get(id) || null;
+}
+
 function closeDb() {
   if (db) { db.close(); db = null; }
 }
@@ -736,5 +840,8 @@ module.exports = {
   // Auth
   validateApiKey,
   // Utilities
-  normalizeForHash
+  normalizeForHash,
+  // Whitelist / Access control
+  addContentWhitelist, removeContentWhitelist, getContentWhitelist, getContentById,
+  addArtifactWhitelist, removeArtifactWhitelist, getArtifactWhitelist, getArtifactById
 };

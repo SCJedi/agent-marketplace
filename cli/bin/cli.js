@@ -56,6 +56,8 @@ function showHelp() {
 
     publish <url>          Crawl, parse, and publish a URL
       --price <price>        Set price (default: $0.0003)
+      --visibility <vis>     Access: public | private | whitelist
+      --whitelist <keys>     Comma-separated API keys (with --visibility whitelist)
 
     publish-artifact       Publish a build artifact
       --name <name>          Artifact name (required)

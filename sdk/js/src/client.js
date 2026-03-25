@@ -66,9 +66,12 @@ class Marketplace {
    * @param {object} content - { text, structured, links, metadata, source_hash }
    * @param {number} price - Price in credits.
    * @param {number} tokenCostSaved - Estimated token cost saved.
+   * @param {object} [accessOpts] - Optional access control options.
+   * @param {string} [accessOpts.visibility] - 'public' (default), 'private', or 'whitelist'.
+   * @param {string[]} [accessOpts.authorizedKeys] - API keys to whitelist (when visibility is 'whitelist').
    * @returns {Promise<object>}
    */
-  async publishContent(url, content, price, tokenCostSaved) {
+  async publishContent(url, content, price, tokenCostSaved, accessOpts = {}) {
     const sourceHash = content.source_hash || createHash('sha256').update(url).digest('hex');
     const payload = {
       url,
@@ -80,6 +83,8 @@ class Marketplace {
       price,
       token_cost_saved: tokenCostSaved,
     };
+    if (accessOpts.visibility) payload.visibility = accessOpts.visibility;
+    if (accessOpts.authorizedKeys) payload.authorized_keys = accessOpts.authorizedKeys;
     return this._request('POST', '/publish/content', null, payload);
   }
 
@@ -188,7 +193,7 @@ class Marketplace {
    * @param {string} category
    * @param {string[]} files
    * @param {number} price
-   * @param {object} [opts] - Additional fields: tags, version, license, slug.
+   * @param {object} [opts] - Additional fields: tags, version, license, slug, visibility, authorizedKeys.
    * @returns {Promise<object>}
    */
   async publishArtifact(name, description, category, files, price, opts = {}) {
@@ -204,6 +209,11 @@ class Marketplace {
     };
     // Ensure slug from opts isn't duplicated
     payload.slug = slug;
+    // Map SDK-style authorizedKeys to server-style authorized_keys
+    if (opts.authorizedKeys) {
+      payload.authorized_keys = opts.authorizedKeys;
+      delete payload.authorizedKeys;
+    }
     return this._request('POST', '/publish/artifact', null, payload);
   }
 

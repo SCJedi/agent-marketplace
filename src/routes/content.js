@@ -4,14 +4,15 @@ const db = require('../db');
 const { apiKeyAuth } = require('../middleware/auth');
 
 async function contentRoutes(fastify, options) {
-  // GET /check?url= — check if clean version exists
+  // GET /check?url= — check if clean version exists (filtered by caller's access)
   fastify.get('/check', async (request, reply) => {
     try {
       const { url } = request.query;
       if (!url) {
         return reply.code(400).send({ success: false, data: null, error: 'url query parameter is required' });
       }
-      const result = db.contentCheck(url);
+      const callerKey = request.headers['x-api-key'] || null;
+      const result = db.contentCheck(url, callerKey);
       return { success: true, data: result, error: null };
     } catch (err) {
       request.log.error(err);
@@ -19,14 +20,15 @@ async function contentRoutes(fastify, options) {
     }
   });
 
-  // GET /fetch?url= — return content record (now includes content_hash for verification)
+  // GET /fetch?url= — return content record (filtered by caller's access)
   fastify.get('/fetch', async (request, reply) => {
     try {
       const { url } = request.query;
       if (!url) {
         return reply.code(400).send({ success: false, data: null, error: 'url query parameter is required' });
       }
-      const record = db.contentFetch(url);
+      const callerKey = request.headers['x-api-key'] || null;
+      const record = db.contentFetch(url, callerKey);
       if (!record) {
         return reply.code(404).send({ success: false, data: null, error: 'Content not found for this URL' });
       }
@@ -53,7 +55,7 @@ async function contentRoutes(fastify, options) {
     }
   });
 
-  // POST /publish/content — accept and store content record (now with defenses)
+  // POST /publish/content — accept and store content record (now with defenses + visibility)
   fastify.post('/publish/content', async (request, reply) => {
     try {
       const body = request.body;
@@ -62,6 +64,12 @@ async function contentRoutes(fastify, options) {
       }
       if (!body.source_hash) {
         return reply.code(400).send({ success: false, data: null, error: 'source_hash is required' });
+      }
+
+      // Validate visibility value
+      const visibility = body.visibility || 'public';
+      if (!['public', 'private', 'whitelist'].includes(visibility)) {
+        return reply.code(400).send({ success: false, data: null, error: 'visibility must be public, private, or whitelist' });
       }
 
       // DEFENSE 0: Identity verification — prevent provider_id spoofing
@@ -123,8 +131,20 @@ async function contentRoutes(fastify, options) {
 
       // DEFENSE 4: Content signing — generate hash and check for divergence
       // Use authenticated provider_id, not body claim
-      const publishBody = { ...body, provider_id: providerId };
+      const publishBody = {
+        ...body,
+        provider_id: providerId,
+        visibility,
+        owner_key: apiKey || null
+      };
       const record = db.contentPublishWithHash(publishBody);
+
+      // If visibility is whitelist and authorized_keys provided, add them
+      if (visibility === 'whitelist' && Array.isArray(body.authorized_keys) && record) {
+        for (const key of body.authorized_keys) {
+          db.addContentWhitelist(record.id, key);
+        }
+      }
 
       if (record && record.content_hash) {
         // Check if this content hash diverges from consensus for this URL
@@ -148,6 +168,75 @@ async function contentRoutes(fastify, options) {
       }
 
       return reply.code(201).send({ success: true, data: record, error: null });
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // --- Whitelist management for content ---
+
+  // POST /content/:id/whitelist — add an API key to whitelist
+  fastify.post('/content/:id/whitelist', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const apiKey = request.headers['x-api-key'];
+      const content = db.getContentById(id);
+      if (!content) {
+        return reply.code(404).send({ success: false, data: null, error: 'Content not found' });
+      }
+      if (!apiKey || content.owner_key !== apiKey) {
+        return reply.code(403).send({ success: false, data: null, error: 'Only the owner can manage the whitelist' });
+      }
+      const body = request.body;
+      if (!body || !body.key) {
+        return reply.code(400).send({ success: false, data: null, error: 'key is required' });
+      }
+      db.addContentWhitelist(id, body.key);
+      return { success: true, data: { content_id: id, authorized_key: body.key }, error: null };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // DELETE /content/:id/whitelist/:key — remove from whitelist
+  fastify.delete('/content/:id/whitelist/:key', async (request, reply) => {
+    try {
+      const { id, key } = request.params;
+      const apiKey = request.headers['x-api-key'];
+      const content = db.getContentById(id);
+      if (!content) {
+        return reply.code(404).send({ success: false, data: null, error: 'Content not found' });
+      }
+      if (!apiKey || content.owner_key !== apiKey) {
+        return reply.code(403).send({ success: false, data: null, error: 'Only the owner can manage the whitelist' });
+      }
+      const removed = db.removeContentWhitelist(id, key);
+      if (!removed) {
+        return reply.code(404).send({ success: false, data: null, error: 'Key not found in whitelist' });
+      }
+      return { success: true, data: { removed: true }, error: null };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // GET /content/:id/whitelist — list authorized keys (owner only)
+  fastify.get('/content/:id/whitelist', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const apiKey = request.headers['x-api-key'];
+      const content = db.getContentById(id);
+      if (!content) {
+        return reply.code(404).send({ success: false, data: null, error: 'Content not found' });
+      }
+      if (!apiKey || content.owner_key !== apiKey) {
+        return reply.code(403).send({ success: false, data: null, error: 'Only the owner can view the whitelist' });
+      }
+      const keys = db.getContentWhitelist(id);
+      return { success: true, data: keys, error: null };
     } catch (err) {
       request.log.error(err);
       return reply.code(500).send({ success: false, data: null, error: err.message });

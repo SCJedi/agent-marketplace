@@ -11,18 +11,19 @@ async function searchRoutes(fastify, options) {
         return reply.code(400).send({ success: false, data: null, error: 'q query parameter is required' });
       }
 
+      const callerKey = request.headers['x-api-key'] || null;
       let results = [];
 
       // Search content (Layer 1) unless type filter excludes it
       if (!type || type === 'content') {
         const maxAgeDays = max_age ? parseInt(max_age, 10) : null;
-        const contentResults = db.searchContent(q, maxAgeDays);
+        const contentResults = db.searchContent(q, maxAgeDays, callerKey);
         results = results.concat(contentResults);
       }
 
       // Search artifacts (Layer 2) unless type filter excludes it
       if (!type || type === 'artifact') {
-        const artifactResults = db.searchArtifacts(q, category, language, license);
+        const artifactResults = db.searchArtifacts(q, category, language, license, callerKey);
         results = results.concat(artifactResults);
       }
 

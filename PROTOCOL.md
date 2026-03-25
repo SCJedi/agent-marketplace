@@ -161,9 +161,19 @@ Represents a cached, structured version of web content.
     "consensus_count": 3,
     "verification_status": "verified",
     "last_verified_at": "2026-03-24T11:00:00Z"
+  },
+  "access": {
+    "visibility": "public | private | whitelist",
+    "owner_key": "api-key-of-publisher",
+    "authorized_keys": ["key1", "key2"]
   }
 }
 ```
+
+**Visibility levels:**
+- `public` — accessible by any agent (default)
+- `private` — accessible only by the publisher (matched by `owner_key`)
+- `whitelist` — accessible by the publisher and any agent whose API key is in `authorized_keys`
 
 ### 4.2 Artifact Record
 
@@ -238,9 +248,16 @@ Represents a reusable AI artifact published to the registry.
     "verifier_count": 5,
     "quality_score": 0.92,
     "flags": []
+  },
+  "access": {
+    "visibility": "public | private | whitelist",
+    "owner_key": "api-key-of-publisher",
+    "authorized_keys": ["key1", "key2"]
   }
 }
 ```
+
+Artifact visibility follows the same rules as content records (see Section 4.1).
 
 ### 4.3 Node Advertisement
 

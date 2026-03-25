@@ -70,6 +70,15 @@ async function run(client, url, opts = {}, config = {}) {
   const tokenCostSaved = contentRecord.token_cost_saved || 0;
   const content = contentRecord.content || {};
 
+  // Access control options
+  const accessOpts = {};
+  if (opts.visibility) {
+    accessOpts.visibility = opts.visibility;
+  }
+  if (opts.whitelist) {
+    accessOpts.authorizedKeys = opts.whitelist.split(',').map(k => k.trim());
+  }
+
   const result = await client.publishContent(
     url,
     {
@@ -80,17 +89,20 @@ async function run(client, url, opts = {}, config = {}) {
       source_hash: contentRecord.source_hash || '',
     },
     price,
-    tokenCostSaved
+    tokenCostSaved,
+    accessOpts
   );
 
   console.log();
   fmt.success(`Published!`);
-  fmt.kvBlock([
+  const kvPairs = [
     ['URL', url],
     ['Price', fmt.price(price)],
     ['Token cost saved', fmt.price(tokenCostSaved)],
     ['ID', result.id || result.content_id || '-'],
-  ]);
+  ];
+  if (accessOpts.visibility) kvPairs.push(['Visibility', accessOpts.visibility]);
+  fmt.kvBlock(kvPairs);
   console.log();
 }
 

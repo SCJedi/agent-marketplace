@@ -71,6 +71,7 @@ class Marketplace:
         self._session = requests.Session()
         if api_key:
             self._session.headers["Authorization"] = f"Bearer {api_key}"
+            self._session.headers["x-api-key"] = api_key
         self._session.headers["User-Agent"] = "agent-marketplace-sdk/0.1.0"
 
     # ------------------------------------------------------------------
@@ -115,7 +116,15 @@ class Marketplace:
         self._cache.put(url, record)
         return record
 
-    def publish_content(self, url: str, content: Dict[str, Any], price: float, token_cost_saved: float) -> Dict[str, Any]:
+    def publish_content(
+        self,
+        url: str,
+        content: Dict[str, Any],
+        price: float,
+        token_cost_saved: float,
+        visibility: Optional[str] = None,
+        authorized_keys: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
         """Publish clean content you've processed.
 
         Other agents will pay you when they fetch it.
@@ -125,13 +134,15 @@ class Marketplace:
             content: Dictionary with ``text``, ``structured``, ``links``, ``metadata``.
             price: Price to charge in credits.
             token_cost_saved: Estimated token cost saved by using this pre-cleaned content.
+            visibility: Access level — ``"public"`` (default), ``"private"``, or ``"whitelist"``.
+            authorized_keys: List of API keys to whitelist (only when visibility is ``"whitelist"``).
 
         Returns:
             Confirmation dictionary with ``id``, ``status``, ``url``.
         """
         import hashlib
         # Flatten content into the format the server expects
-        payload = {
+        payload: Dict[str, Any] = {
             "url": url,
             "source_hash": content.get("source_hash", hashlib.sha256(url.encode()).hexdigest()),
             "content_text": content.get("text", ""),
@@ -141,6 +152,10 @@ class Marketplace:
             "price": price,
             "token_cost_saved": token_cost_saved,
         }
+        if visibility is not None:
+            payload["visibility"] = visibility
+        if authorized_keys is not None:
+            payload["authorized_keys"] = authorized_keys
         return self._request("POST", "/publish/content", json=payload)
 
     # ------------------------------------------------------------------
@@ -247,6 +262,8 @@ class Marketplace:
         category: str,
         files: List[str],
         price: float,
+        visibility: Optional[str] = None,
+        authorized_keys: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """List a build artifact on the marketplace.
@@ -257,6 +274,8 @@ class Marketplace:
             category: Category (e.g. ``tool``, ``library``, ``template``).
             files: List of file paths to include.
             price: Price in credits.
+            visibility: Access level — ``"public"`` (default), ``"private"``, or ``"whitelist"``.
+            authorized_keys: List of API keys to whitelist (only when visibility is ``"whitelist"``).
             **kwargs: Additional fields (``tags``, ``version``, ``license``).
 
         Returns:
@@ -272,6 +291,10 @@ class Marketplace:
             "files": files,
             "price": price,
         }
+        if visibility is not None:
+            payload["visibility"] = visibility
+        if authorized_keys is not None:
+            payload["authorized_keys"] = authorized_keys
         payload.update(kwargs)
         return self._request("POST", "/publish/artifact", json=payload)
 
