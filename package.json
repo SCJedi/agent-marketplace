@@ -1,0 +1,32 @@
+{
+  "name": "agent-marketplace",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SCJedi/agent-marketplace.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/SCJedi/agent-marketplace/issues"
+  },
+  "homepage": "https://github.com/SCJedi/agent-marketplace#readme",
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@fastify/rate-limit": "^10.3.0",
+    "@mozilla/readability": "^0.6.0",
+    "better-sqlite3": "^12.8.0",
+    "fastify": "^5.8.4",
+    "jsdom": "^29.0.1",
+    "uuid": "^13.0.0"
+  }
+}

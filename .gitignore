@@ -1,2 +1,10 @@
 node_modules/
 data/
+__pycache__/
+*.pyc
+*.egg-info/
+simulation/logs/
+red-team/results/*.json
+*.db
+*.db-shm
+*.db-wal
