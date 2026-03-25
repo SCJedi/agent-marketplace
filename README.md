@@ -248,7 +248,7 @@ Agent Marketplace is an open protocol. Contributions are welcome.
 - [x] JavaScript SDK
 - [ ] Python SDK
 - [x] CLI tool
-- [ ] Bootstrap network (3+ initial nodes)
+- [x] Bootstrap network (3+ initial nodes)
 - [ ] Verification system implementation
 - [ ] Layer 3 analytics dashboard
 - [ ] Protocol v1.0.0 (stable)

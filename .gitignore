@@ -8,3 +8,4 @@ red-team/results/*.json
 *.db
 *.db-shm
 *.db-wal
+bootstrap/data/
