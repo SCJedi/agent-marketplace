@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Marketplace</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #242836;
+      --border: #2e3345;
+      --text: #e4e7ef;
+      --text-muted: #8b92a8;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --green: #22c55e;
+      --yellow: #eab308;
+      --red: #ef4444;
+      --radius: 8px;
+      --shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ── WIZARD ─────────────────────────────────── */
+
+    .wizard-overlay {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000;
+    }
+    .wizard-overlay.hidden { display: none; }
+
+    .wizard-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 40px;
+      max-width: 520px;
+      width: 90%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+
+    .wizard-card h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .wizard-card .subtitle {
+      color: var(--text-muted);
+      margin-bottom: 28px;
+    }
+
+    .wizard-step { margin-bottom: 24px; }
+
+    .wizard-step label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .wizard-step .hint {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    input[type="text"], input[type="url"], input[type="number"] {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus { border-color: var(--accent); }
+
+    .radio-group { display: flex; flex-direction: column; gap: 8px; }
+
+    .radio-option {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .radio-option:hover { border-color: var(--accent); }
+    .radio-option input[type="radio"] { accent-color: var(--accent); }
+    .radio-option.selected { border-color: var(--accent); background: rgba(99,102,241,0.08); }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 10px 24px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn.full { width: 100%; }
+    .btn.secondary { background: var(--surface2); }
+    .btn.secondary:hover { background: var(--border); }
+    .btn.small { padding: 6px 14px; font-size: 13px; }
+    .btn.danger { background: var(--red); }
+
+    .error-msg {
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.3);
+      color: #fca5a5;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      margin-top: 12px;
+    }
+    .error-msg.hidden { display: none; }
+
+    .success-msg {
+      background: rgba(34,197,94,0.12);
+      border: 1px solid rgba(34,197,94,0.3);
+      color: #86efac;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      margin-top: 12px;
+    }
+    .success-msg.hidden { display: none; }
+
+    .warning-msg {
+      background: rgba(234,179,8,0.12);
+      border: 1px solid rgba(234,179,8,0.3);
+      color: #fde047;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      margin-top: 12px;
+    }
+
+    /* ── MAIN DASHBOARD ─────────────────────────── */
+
+    .dashboard { display: none; }
+    .dashboard.visible { display: block; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100;
+    }
+
+    .topbar-left {
+      display: flex; align-items: center; gap: 12px;
+    }
+
+    .status-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--green);
+      flex-shrink: 0;
+    }
+    .status-dot.down { background: var(--red); }
+
+    .node-name { font-weight: 700; font-size: 17px; }
+    .node-status { color: var(--text-muted); font-size: 14px; }
+
+    .topbar-right { display: flex; gap: 8px; }
+
+    .main-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* ── STAT CARDS ─────────────────────────────── */
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    .stat-card .stat-label {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .stat-card .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .stat-card .stat-detail {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ── PANELS ──────────────────────────────────── */
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .panel-body { padding: 0; }
+    .panel-body.padded { padding: 20px; }
+
+    /* ── TABLES ──────────────────────────────────── */
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    .data-table th {
+      text-align: left;
+      padding: 10px 16px;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .data-table td {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover { background: rgba(255,255,255,0.02); }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge.public { background: rgba(34,197,94,0.15); color: var(--green); }
+    .badge.private { background: rgba(239,68,68,0.15); color: var(--red); }
+    .badge.whitelist { background: rgba(99,102,241,0.15); color: var(--accent-hover); }
+    .badge.healthy { background: rgba(34,197,94,0.15); color: var(--green); }
+    .badge.degraded { background: rgba(234,179,8,0.15); color: var(--yellow); }
+    .badge.down { background: rgba(239,68,68,0.15); color: var(--red); }
+
+    .empty-state {
+      text-align: center;
+      padding: 32px 20px;
+      color: var(--text-muted);
+    }
+
+    /* ── MODALS ──────────────────────────────────── */
+
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 500;
+    }
+    .modal-overlay.hidden { display: none; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+
+    .modal h2 { font-size: 18px; margin-bottom: 16px; }
+
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--text-muted);
+    }
+
+    .form-row {
+      display: flex; gap: 12px;
+    }
+    .form-row > * { flex: 1; }
+
+    select {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 15px;
+      outline: none;
+    }
+    select:focus { border-color: var(--accent); }
+
+    .btn-row {
+      display: flex; gap: 8px; justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    /* ── QUICK ACTIONS ──────────────────────────── */
+
+    .quick-actions {
+      display: flex; flex-wrap: wrap; gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    /* ── SHARE BOX ──────────────────────────────── */
+
+    .share-box {
+      display: flex; align-items: center; gap: 10px;
+      padding: 16px 20px;
+      background: var(--bg);
+      border-radius: var(--radius);
+    }
+
+    .share-box code {
+      flex: 1;
+      font-family: 'SF Mono', 'Consolas', monospace;
+      font-size: 14px;
+      color: var(--accent-hover);
+    }
+
+    /* ── SEARCH BAR ─────────────────────────────── */
+
+    .search-container {
+      display: flex; gap: 8px;
+      margin-bottom: 8px;
+    }
+    .search-container input { flex: 1; }
+
+    .search-results {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .search-result-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .search-result-item:last-child { border-bottom: none; }
+    .search-result-item .result-url { font-weight: 600; color: var(--accent-hover); word-break: break-all; }
+    .search-result-item .result-meta { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── SETTINGS ────────────────────────────────── */
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 700px) {
+      .settings-grid { grid-template-columns: 1fr; }
+      .stat-grid { grid-template-columns: 1fr 1fr; }
+      .topbar { padding: 12px 16px; }
+      .main-content { padding: 16px; }
+      .form-row { flex-direction: column; }
+    }
+
+    /* ── TABS ─────────────────────────────────────── */
+
+    .tab-bar {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+      overflow-x: auto;
+    }
+
+    .tab {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent-hover); border-bottom-color: var(--accent); }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ── LOADING ──────────────────────────────────── */
+
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-overlay {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 24px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════ SETUP WIZARD ═══════════ -->
+<div id="wizard" class="wizard-overlay hidden">
+  <div class="wizard-card">
+    <h1>Welcome to Agent Marketplace</h1>
+    <p class="subtitle">Let's set up your node in 3 steps.</p>
+
+    <div class="wizard-step">
+      <label for="w-name">Step 1: Name your node</label>
+      <input type="text" id="w-name" placeholder="e.g. Eric's Node" autocomplete="off">
+    </div>
+
+    <div class="wizard-step">
+      <label>Step 2: What does your node focus on?</label>
+      <div class="radio-group" id="w-specialty">
+        <label class="radio-option" data-val="web">
+          <input type="radio" name="specialty" value="web"> General Web
+        </label>
+        <label class="radio-option" data-val="code">
+          <input type="radio" name="specialty" value="code"> Code &amp; Development
+        </label>
+        <label class="radio-option" data-val="finance">
+          <input type="radio" name="specialty" value="finance"> Finance &amp; Data
+        </label>
+        <label class="radio-option selected" data-val="general">
+          <input type="radio" name="specialty" value="general" checked> Everything (no specialty)
+        </label>
+      </div>
+    </div>
+
+    <div class="wizard-step">
+      <label for="w-seed">Step 3: Connect to the network</label>
+      <p class="hint">Know someone already running a node? Enter their address to connect:</p>
+      <input type="url" id="w-seed" placeholder="http://192.168.1.5:3001" style="margin-top:8px">
+      <p class="hint">Leave blank to start as a standalone node.</p>
+    </div>
+
+    <button class="btn full" id="w-submit" onclick="submitWizard()">Start My Node</button>
+    <div id="w-error" class="error-msg hidden"></div>
+    <div id="w-warning" class="warning-msg" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ═══════════ MAIN DASHBOARD ═══════════ -->
+<div id="dashboard" class="dashboard">
+
+  <!-- Top Bar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="status-dot" id="status-dot"></div>
+      <span class="node-name" id="node-name">Node</span>
+      <span class="node-status" id="node-status">Starting...</span>
+    </div>
+    <div class="topbar-right">
+      <button class="btn small secondary" onclick="showTab('settings')">Settings</button>
+    </div>
+  </div>
+
+  <div class="main-content">
+
+    <!-- Tabs -->
+    <div class="tab-bar">
+      <div class="tab active" data-tab="overview" onclick="showTab('overview')">Overview</div>
+      <div class="tab" data-tab="content" onclick="showTab('content')">Content</div>
+      <div class="tab" data-tab="peers" onclick="showTab('peers')">Peers</div>
+      <div class="tab" data-tab="search" onclick="showTab('search')">Search</div>
+      <div class="tab" data-tab="activity" onclick="showTab('activity')">Activity</div>
+      <div class="tab" data-tab="settings" onclick="showTab('settings')">Settings</div>
+    </div>
+
+    <!-- ─── OVERVIEW TAB ──────────────────── -->
+    <div class="tab-content active" id="tab-overview">
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">My Content</div>
+          <div class="stat-value" id="s-content">--</div>
+          <div class="stat-detail"><span id="s-private">0</span> private, <span id="s-artifacts">0</span> artifacts</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Network</div>
+          <div class="stat-value" id="s-peers">--</div>
+          <div class="stat-detail">connected peers</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Activity</div>
+          <div class="stat-value" id="s-activity">--</div>
+          <div class="stat-detail">requests today</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Uptime</div>
+          <div class="stat-value" id="s-uptime">--</div>
+          <div class="stat-detail" id="s-started">--</div>
+        </div>
+      </div>
+
+      <div class="quick-actions">
+        <button class="btn" onclick="openPublishModal()">Add Content</button>
+        <button class="btn secondary" onclick="showTab('search')">Search Network</button>
+        <button class="btn secondary" onclick="openAddPeerModal()">Add Peer</button>
+      </div>
+
+      <!-- Recent Content (mini) -->
+      <div class="panel">
+        <div class="panel-header">
+          <span>Recent Content</span>
+          <button class="btn small secondary" onclick="showTab('content')">View All</button>
+        </div>
+        <div class="panel-body">
+          <table class="data-table" id="overview-content-table">
+            <thead>
+              <tr><th>URL</th><th>Visibility</th><th>Price</th></tr>
+            </thead>
+            <tbody id="overview-content-body">
+              <tr><td colspan="3" class="empty-state">No content yet. Click "Add Content" to publish your first URL.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Connected Peers (mini) -->
+      <div class="panel">
+        <div class="panel-header">
+          <span>Connected Peers</span>
+          <button class="btn small secondary" onclick="showTab('peers')">View All</button>
+        </div>
+        <div class="panel-body">
+          <table class="data-table">
+            <thead>
+              <tr><th>Name</th><th>Address</th><th>Status</th></tr>
+            </thead>
+            <tbody id="overview-peers-body">
+              <tr><td colspan="3" class="empty-state">No peers connected. Add a peer or share your address to connect.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Share Box -->
+      <div class="panel">
+        <div class="panel-header">Share This Node</div>
+        <div class="panel-body padded">
+          <p style="color:var(--text-muted); font-size:14px; margin-bottom:10px">
+            Send this address to friends so they can connect to your node.
+          </p>
+          <div class="share-box">
+            <code id="share-address">http://localhost:3001</code>
+            <button class="btn small" onclick="copyAddress()">Copy</button>
+          </div>
+          <div id="copy-success" class="success-msg hidden" style="margin-top:8px">Address copied to clipboard.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── CONTENT TAB ───────────────────── -->
+    <div class="tab-content" id="tab-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
+        <h2 style="font-size:18px">Published Content</h2>
+        <button class="btn" onclick="openPublishModal()">Add Content</button>
+      </div>
+      <div class="panel">
+        <div class="panel-body">
+          <table class="data-table">
+            <thead>
+              <tr><th>URL</th><th>Visibility</th><th>Price</th><th>Published</th></tr>
+            </thead>
+            <tbody id="content-table-body">
+              <tr><td colspan="4"><div class="loading-overlay"><div class="spinner"></div> Loading...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── PEERS TAB ─────────────────────── -->
+    <div class="tab-content" id="tab-peers">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
+        <h2 style="font-size:18px">Connected Peers</h2>
+        <button class="btn" onclick="openAddPeerModal()">Add Peer</button>
+      </div>
+      <div class="panel">
+        <div class="panel-body">
+          <table class="data-table">
+            <thead>
+              <tr><th>Name</th><th>Address</th><th>Specialty</th><th>Status</th><th>Last Seen</th></tr>
+            </thead>
+            <tbody id="peers-table-body">
+              <tr><td colspan="5"><div class="loading-overlay"><div class="spinner"></div> Loading...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SEARCH TAB ────────────────────── -->
+    <div class="tab-content" id="tab-search">
+      <h2 style="font-size:18px; margin-bottom:16px">Search Network</h2>
+      <div class="search-container">
+        <input type="text" id="search-input" placeholder="Search for content or artifacts..." onkeydown="if(event.key==='Enter')doSearch()">
+        <button class="btn" onclick="doSearch()">Search</button>
+      </div>
+      <div class="panel" id="search-results-panel" style="display:none">
+        <div class="panel-header">
+          <span id="search-results-count">Results</span>
+        </div>
+        <div class="panel-body search-results" id="search-results-body"></div>
+      </div>
+    </div>
+
+    <!-- ─── ACTIVITY TAB ──────────────────── -->
+    <div class="tab-content" id="tab-activity">
+      <h2 style="font-size:18px; margin-bottom:16px">Recent Activity</h2>
+      <div class="panel">
+        <div class="panel-body">
+          <table class="data-table">
+            <thead>
+              <tr><th>Time</th><th>Type</th><th>Detail</th></tr>
+            </thead>
+            <tbody id="activity-table-body">
+              <tr><td colspan="3"><div class="loading-overlay"><div class="spinner"></div> Loading...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SETTINGS TAB ─────────────────── -->
+    <div class="tab-content" id="tab-settings">
+      <h2 style="font-size:18px; margin-bottom:16px">Settings</h2>
+      <div class="settings-grid">
+        <div class="panel">
+          <div class="panel-header">Node Configuration</div>
+          <div class="panel-body padded">
+            <div class="form-group">
+              <label>Node Name</label>
+              <input type="text" id="cfg-name" placeholder="My Node">
+            </div>
+            <div class="form-group">
+              <label>Specialty</label>
+              <select id="cfg-specialty">
+                <option value="general">Everything (no specialty)</option>
+                <option value="web">General Web</option>
+                <option value="code">Code & Development</option>
+                <option value="finance">Finance & Data</option>
+              </select>
+            </div>
+            <button class="btn" onclick="saveSettings()">Save Changes</button>
+            <div id="settings-msg" class="success-msg hidden" style="margin-top:8px">Settings saved.</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <span>API Keys</span>
+            <button class="btn small" onclick="generateKey()">Generate Key</button>
+          </div>
+          <div class="panel-body">
+            <table class="data-table">
+              <thead>
+                <tr><th>Key</th><th>Owner</th><th>Created</th></tr>
+              </thead>
+              <tbody id="keys-table-body">
+                <tr><td colspan="3" class="empty-state">No API keys yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main-content -->
+</div><!-- /dashboard -->
+
+<!-- ═══════════ PUBLISH MODAL ═══════════ -->
+<div id="publish-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h2>Add Content</h2>
+    <p style="color:var(--text-muted); font-size:14px; margin-bottom:16px">
+      Enter a URL to crawl and publish to the marketplace.
+    </p>
+    <div class="form-group">
+      <label>URL</label>
+      <input type="url" id="pub-url" placeholder="https://example.com/docs/api">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Visibility</label>
+        <select id="pub-visibility">
+          <option value="public">Public</option>
+          <option value="private">Private</option>
+          <option value="whitelist">Whitelist Only</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Price (USD)</label>
+        <input type="number" id="pub-price" value="0.0003" step="0.0001" min="0">
+      </div>
+    </div>
+    <div id="pub-error" class="error-msg hidden"></div>
+    <div id="pub-success" class="success-msg hidden"></div>
+    <div class="btn-row">
+      <button class="btn secondary" onclick="closePublishModal()">Cancel</button>
+      <button class="btn" id="pub-submit" onclick="publishContent()">Publish</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ ADD PEER MODAL ═══════════ -->
+<div id="peer-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h2>Add Peer</h2>
+    <p style="color:var(--text-muted); font-size:14px; margin-bottom:16px">
+      Enter the address of another Agent Marketplace node.
+    </p>
+    <div class="form-group">
+      <label>Peer Address</label>
+      <input type="url" id="peer-endpoint" placeholder="http://192.168.1.5:3001">
+    </div>
+    <div id="peer-error" class="error-msg hidden"></div>
+    <div id="peer-success" class="success-msg hidden"></div>
+    <div class="btn-row">
+      <button class="btn secondary" onclick="closePeerModal()">Cancel</button>
+      <button class="btn" id="peer-submit" onclick="addPeer()">Connect</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ═══════════════════════════════════════════
+  //  STATE
+  // ═══════════════════════════════════════════
+
+  let pollTimer = null;
+  const API = '/dashboard/api';
+
+  // ═══════════════════════════════════════════
+  //  INIT
+  // ═══════════════════════════════════════════
+
+  async function init() {
+    try {
+      const resp = await fetch(API + '/status');
+      const data = await resp.json();
+      if (data.success && data.data.configured) {
+        showDashboard(data.data);
+      } else {
+        showWizard();
+      }
+    } catch (e) {
+      showWizard();
+    }
+  }
+
+  function showWizard() {
+    document.getElementById('wizard').classList.remove('hidden');
+    document.getElementById('dashboard').classList.remove('visible');
+    document.getElementById('w-name').focus();
+  }
+
+  function showDashboard(statusData) {
+    document.getElementById('wizard').classList.add('hidden');
+    document.getElementById('dashboard').classList.add('visible');
+    if (statusData) updateStatus(statusData);
+    startPolling();
+    loadContent();
+    loadPeers();
+    loadActivity();
+    loadKeys();
+    loadConfig();
+    detectAddress();
+  }
+
+  // ═══════════════════════════════════════════
+  //  WIZARD
+  // ═══════════════════════════════════════════
+
+  // Radio button selection styling
+  document.querySelectorAll('.radio-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      document.querySelectorAll('.radio-option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      opt.querySelector('input[type="radio"]').checked = true;
+    });
+  });
+
+  async function submitWizard() {
+    const nameInput = document.getElementById('w-name');
+    const name = nameInput.value.trim();
+    if (!name) {
+      showError('w-error', 'Please enter a name for your node.');
+      nameInput.focus();
+      return;
+    }
+
+    const specialty = document.querySelector('input[name="specialty"]:checked').value;
+    const seedPeer = document.getElementById('w-seed').value.trim();
+
+    const btn = document.getElementById('w-submit');
+    btn.disabled = true;
+    btn.textContent = 'Setting up...';
+
+    try {
+      const resp = await fetch(API + '/setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nodeName: name, specialty, seedPeer })
+      });
+      const data = await resp.json();
+
+      if (!data.success) {
+        showError('w-error', data.error || 'Setup failed. Please try again.');
+        btn.disabled = false;
+        btn.textContent = 'Start My Node';
+        return;
+      }
+
+      if (data.data.peerWarning) {
+        const warn = document.getElementById('w-warning');
+        warn.textContent = data.data.peerWarning;
+        warn.style.display = 'block';
+        await new Promise(r => setTimeout(r, 2500));
+      }
+
+      showDashboard(null);
+      // Refresh status immediately
+      refreshStatus();
+    } catch (e) {
+      showError('w-error', 'Network error. Is the server running?');
+      btn.disabled = false;
+      btn.textContent = 'Start My Node';
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  POLLING
+  // ═══════════════════════════════════════════
+
+  function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(refreshAll, 5000);
+  }
+
+  async function refreshAll() {
+    refreshStatus();
+    // Only refresh the active tab's data
+    const active = document.querySelector('.tab.active');
+    if (!active) return;
+    const tab = active.dataset.tab;
+    if (tab === 'content' || tab === 'overview') loadContent();
+    if (tab === 'peers' || tab === 'overview') loadPeers();
+    if (tab === 'activity') loadActivity();
+  }
+
+  async function refreshStatus() {
+    try {
+      const resp = await fetch(API + '/status');
+      const data = await resp.json();
+      if (data.success) updateStatus(data.data);
+    } catch (e) { /* silent */ }
+  }
+
+  function updateStatus(d) {
+    document.getElementById('node-name').textContent = d.nodeName || 'Node';
+    document.getElementById('node-status').textContent = 'Running';
+    document.getElementById('status-dot').className = 'status-dot';
+
+    document.getElementById('s-content').textContent = d.contentCount || 0;
+    document.getElementById('s-private').textContent = d.privateCount || 0;
+    document.getElementById('s-artifacts').textContent = d.artifactCount || 0;
+    document.getElementById('s-peers').textContent = d.peerCount || 0;
+    document.getElementById('s-activity').textContent = d.todayActivity || 0;
+
+    const uptime = d.uptime || 0;
+    if (uptime < 60) {
+      document.getElementById('s-uptime').textContent = Math.floor(uptime) + 's';
+    } else if (uptime < 3600) {
+      document.getElementById('s-uptime').textContent = Math.floor(uptime / 60) + 'm';
+    } else {
+      const h = Math.floor(uptime / 3600);
+      const m = Math.floor((uptime % 3600) / 60);
+      document.getElementById('s-uptime').textContent = h + 'h ' + m + 'm';
+    }
+    if (d.startedAt) {
+      document.getElementById('s-started').textContent = 'since ' + new Date(d.startedAt).toLocaleTimeString();
+    }
+
+    document.title = (d.nodeName || 'Node') + ' - Agent Marketplace';
+  }
+
+  // ═══════════════════════════════════════════
+  //  CONTENT
+  // ═══════════════════════════════════════════
+
+  async function loadContent() {
+    try {
+      const resp = await fetch(API + '/content?limit=50');
+      const data = await resp.json();
+      if (!data.success) return;
+
+      const items = data.data.items || [];
+
+      // Overview mini table (top 5)
+      const overviewBody = document.getElementById('overview-content-body');
+      if (items.length === 0) {
+        overviewBody.innerHTML = '<tr><td colspan="3" class="empty-state">No content yet. Click "Add Content" to publish your first URL.</td></tr>';
+      } else {
+        overviewBody.innerHTML = items.slice(0, 5).map(renderContentRow3Col).join('');
+      }
+
+      // Full content table
+      const tbody = document.getElementById('content-table-body');
+      if (items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No content published yet.</td></tr>';
+      } else {
+        tbody.innerHTML = items.map(renderContentRow4Col).join('');
+      }
+    } catch (e) { /* silent */ }
+  }
+
+  function renderContentRow3Col(item) {
+    const vis = visibilityBadge(item.visibility);
+    const price = item.price ? '$' + item.price.toFixed(4) : 'Free';
+    const url = escapeHtml(truncate(item.url, 50));
+    return `<tr><td title="${escapeHtml(item.url)}">${url}</td><td>${vis}</td><td>${price}</td></tr>`;
+  }
+
+  function renderContentRow4Col(item) {
+    const vis = visibilityBadge(item.visibility);
+    const price = item.price ? '$' + item.price.toFixed(4) : 'Free';
+    const url = escapeHtml(truncate(item.url, 60));
+    const date = item.fetched_at ? new Date(item.fetched_at).toLocaleString() : '--';
+    return `<tr><td title="${escapeHtml(item.url)}">${url}</td><td>${vis}</td><td>${price}</td><td>${date}</td></tr>`;
+  }
+
+  function visibilityBadge(v) {
+    if (v === 'private') return '<span class="badge private">Private</span>';
+    if (v === 'whitelist') return '<span class="badge whitelist">Whitelist</span>';
+    return '<span class="badge public">Public</span>';
+  }
+
+  // ═══════════════════════════════════════════
+  //  PEERS
+  // ═══════════════════════════════════════════
+
+  async function loadPeers() {
+    try {
+      const resp = await fetch(API + '/peers');
+      const data = await resp.json();
+      if (!data.success) return;
+
+      const peers = data.data || [];
+
+      // Overview mini table
+      const overviewBody = document.getElementById('overview-peers-body');
+      if (peers.length === 0) {
+        overviewBody.innerHTML = '<tr><td colspan="3" class="empty-state">No peers connected. Add a peer or share your address.</td></tr>';
+      } else {
+        overviewBody.innerHTML = peers.slice(0, 5).map(p => {
+          const badge = statusBadge(p.status);
+          return `<tr><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.endpoint)}</td><td>${badge}</td></tr>`;
+        }).join('');
+      }
+
+      // Full peers table
+      const tbody = document.getElementById('peers-table-body');
+      if (peers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No peers connected yet.</td></tr>';
+      } else {
+        tbody.innerHTML = peers.map(p => {
+          const badge = statusBadge(p.status);
+          const lastSeen = p.lastSeen ? new Date(p.lastSeen).toLocaleString() : 'Never';
+          return `<tr><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.endpoint)}</td><td>${escapeHtml(p.specialty || 'general')}</td><td>${badge}</td><td>${lastSeen}</td></tr>`;
+        }).join('');
+      }
+    } catch (e) { /* silent */ }
+  }
+
+  function statusBadge(s) {
+    if (s === 'healthy') return '<span class="badge healthy">Healthy</span>';
+    if (s === 'degraded') return '<span class="badge degraded">Degraded</span>';
+    return '<span class="badge down">Down</span>';
+  }
+
+  // ═══════════════════════════════════════════
+  //  ACTIVITY
+  // ═══════════════════════════════════════════
+
+  async function loadActivity() {
+    try {
+      const resp = await fetch(API + '/activity?limit=50');
+      const data = await resp.json();
+      if (!data.success) return;
+
+      const items = data.data || [];
+      const tbody = document.getElementById('activity-table-body');
+      if (items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="empty-state">No activity yet.</td></tr>';
+      } else {
+        tbody.innerHTML = items.map(a => {
+          const time = new Date(a.timestamp).toLocaleString();
+          return `<tr><td>${time}</td><td>${escapeHtml(a.type)}</td><td>${escapeHtml(a.detail)}</td></tr>`;
+        }).join('');
+      }
+    } catch (e) { /* silent */ }
+  }
+
+  // ═══════════════════════════════════════════
+  //  SEARCH
+  // ═══════════════════════════════════════════
+
+  async function doSearch() {
+    const q = document.getElementById('search-input').value.trim();
+    if (!q) return;
+
+    const panel = document.getElementById('search-results-panel');
+    const body = document.getElementById('search-results-body');
+    const count = document.getElementById('search-results-count');
+
+    panel.style.display = 'block';
+    body.innerHTML = '<div class="loading-overlay"><div class="spinner"></div> Searching...</div>';
+
+    try {
+      const resp = await fetch(API + '/search?q=' + encodeURIComponent(q));
+      const data = await resp.json();
+
+      if (!data.success) {
+        body.innerHTML = '<div class="empty-state">' + escapeHtml(data.error) + '</div>';
+        count.textContent = 'Error';
+        return;
+      }
+
+      const results = data.data.results || [];
+      count.textContent = results.length + ' result' + (results.length !== 1 ? 's' : '');
+
+      if (results.length === 0) {
+        body.innerHTML = '<div class="empty-state">No results found for "' + escapeHtml(q) + '"</div>';
+      } else {
+        body.innerHTML = results.map(r => {
+          const url = r.url || r.slug || '';
+          const type = r.type || 'content';
+          const price = r.price ? '$' + r.price.toFixed(4) : 'Free';
+          const title = r.name || '';
+          return `<div class="search-result-item">
+            <div class="result-url">${escapeHtml(url)}</div>
+            <div class="result-meta">${type} &middot; ${price}${title ? ' &middot; ' + escapeHtml(title) : ''}</div>
+          </div>`;
+        }).join('');
+      }
+    } catch (e) {
+      body.innerHTML = '<div class="empty-state">Search failed. Is the server running?</div>';
+      count.textContent = 'Error';
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  PUBLISH MODAL
+  // ═══════════════════════════════════════════
+
+  function openPublishModal() {
+    document.getElementById('publish-modal').classList.remove('hidden');
+    document.getElementById('pub-url').value = '';
+    document.getElementById('pub-error').classList.add('hidden');
+    document.getElementById('pub-success').classList.add('hidden');
+    document.getElementById('pub-submit').disabled = false;
+    document.getElementById('pub-url').focus();
+  }
+
+  function closePublishModal() {
+    document.getElementById('publish-modal').classList.add('hidden');
+  }
+
+  async function publishContent() {
+    const url = document.getElementById('pub-url').value.trim();
+    if (!url) {
+      showError('pub-error', 'Please enter a URL.');
+      return;
+    }
+
+    const visibility = document.getElementById('pub-visibility').value;
+    const price = parseFloat(document.getElementById('pub-price').value) || 0.0003;
+
+    const btn = document.getElementById('pub-submit');
+    btn.disabled = true;
+    btn.textContent = 'Publishing...';
+
+    try {
+      const resp = await fetch(API + '/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, visibility, price })
+      });
+      const data = await resp.json();
+
+      if (!data.success) {
+        showError('pub-error', data.error || 'Publish failed.');
+        btn.disabled = false;
+        btn.textContent = 'Publish';
+        return;
+      }
+
+      document.getElementById('pub-success').textContent = 'Published successfully!';
+      document.getElementById('pub-success').classList.remove('hidden');
+      document.getElementById('pub-error').classList.add('hidden');
+      btn.textContent = 'Publish';
+      btn.disabled = false;
+
+      loadContent();
+      refreshStatus();
+
+      setTimeout(() => closePublishModal(), 1500);
+    } catch (e) {
+      showError('pub-error', 'Network error. Is the server running?');
+      btn.disabled = false;
+      btn.textContent = 'Publish';
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  ADD PEER MODAL
+  // ═══════════════════════════════════════════
+
+  function openAddPeerModal() {
+    document.getElementById('peer-modal').classList.remove('hidden');
+    document.getElementById('peer-endpoint').value = '';
+    document.getElementById('peer-error').classList.add('hidden');
+    document.getElementById('peer-success').classList.add('hidden');
+    document.getElementById('peer-submit').disabled = false;
+    document.getElementById('peer-endpoint').focus();
+  }
+
+  function closePeerModal() {
+    document.getElementById('peer-modal').classList.add('hidden');
+  }
+
+  async function addPeer() {
+    const endpoint = document.getElementById('peer-endpoint').value.trim();
+    if (!endpoint) {
+      showError('peer-error', 'Please enter a peer address.');
+      return;
+    }
+
+    const btn = document.getElementById('peer-submit');
+    btn.disabled = true;
+    btn.textContent = 'Connecting...';
+
+    try {
+      const resp = await fetch(API + '/add-peer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint })
+      });
+      const data = await resp.json();
+
+      if (!data.success) {
+        showError('peer-error', data.error || 'Failed to add peer.');
+        btn.disabled = false;
+        btn.textContent = 'Connect';
+        return;
+      }
+
+      document.getElementById('peer-success').textContent = 'Connected successfully!';
+      document.getElementById('peer-success').classList.remove('hidden');
+      document.getElementById('peer-error').classList.add('hidden');
+      btn.textContent = 'Connect';
+      btn.disabled = false;
+
+      loadPeers();
+      refreshStatus();
+
+      setTimeout(() => closePeerModal(), 1500);
+    } catch (e) {
+      showError('peer-error', 'Network error. Is the server running?');
+      btn.disabled = false;
+      btn.textContent = 'Connect';
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  SETTINGS
+  // ═══════════════════════════════════════════
+
+  async function loadConfig() {
+    try {
+      const resp = await fetch(API + '/config');
+      const data = await resp.json();
+      if (data.success && data.data) {
+        document.getElementById('cfg-name').value = data.data.nodeName || '';
+        document.getElementById('cfg-specialty').value = data.data.specialty || 'general';
+      }
+    } catch (e) { /* silent */ }
+  }
+
+  async function saveSettings() {
+    const nodeName = document.getElementById('cfg-name').value.trim();
+    const specialty = document.getElementById('cfg-specialty').value;
+
+    try {
+      const resp = await fetch(API + '/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nodeName, specialty })
+      });
+      const data = await resp.json();
+      if (data.success) {
+        const msg = document.getElementById('settings-msg');
+        msg.classList.remove('hidden');
+        setTimeout(() => msg.classList.add('hidden'), 2500);
+        refreshStatus();
+      }
+    } catch (e) { /* silent */ }
+  }
+
+  async function loadKeys() {
+    try {
+      const resp = await fetch(API + '/keys');
+      const data = await resp.json();
+      if (!data.success) return;
+
+      const keys = data.data || [];
+      const tbody = document.getElementById('keys-table-body');
+      if (keys.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="empty-state">No API keys yet.</td></tr>';
+      } else {
+        tbody.innerHTML = keys.map(k => {
+          const date = k.createdAt ? new Date(k.createdAt).toLocaleDateString() : '--';
+          return `<tr>
+            <td><code style="font-size:12px; cursor:pointer" title="Click to copy" onclick="copyText('${k.fullKey}')">${escapeHtml(k.key)}</code></td>
+            <td>${escapeHtml(k.ownerId)}</td>
+            <td>${date}</td>
+          </tr>`;
+        }).join('');
+      }
+    } catch (e) { /* silent */ }
+  }
+
+  async function generateKey() {
+    const label = prompt('Label for this API key (optional):') || 'dashboard-user';
+    try {
+      const resp = await fetch(API + '/keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label })
+      });
+      const data = await resp.json();
+      if (data.success) {
+        alert('API Key generated:\n\n' + data.data.key + '\n\nSave this key - you will need it to publish content via the API.');
+        loadKeys();
+      }
+    } catch (e) { /* silent */ }
+  }
+
+  // ═══════════════════════════════════════════
+  //  TABS
+  // ═══════════════════════════════════════════
+
+  function showTab(tabName) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+
+    const tabEl = document.querySelector(`.tab[data-tab="${tabName}"]`);
+    const contentEl = document.getElementById('tab-' + tabName);
+    if (tabEl) tabEl.classList.add('active');
+    if (contentEl) contentEl.classList.add('active');
+
+    // Lazy-load tab data
+    if (tabName === 'content') loadContent();
+    if (tabName === 'peers') loadPeers();
+    if (tabName === 'activity') loadActivity();
+    if (tabName === 'settings') { loadConfig(); loadKeys(); }
+  }
+
+  // ═══════════════════════════════════════════
+  //  UTILITIES
+  // ═══════════════════════════════════════════
+
+  function showError(id, msg) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+
+  function escapeHtml(s) {
+    if (!s) return '';
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function truncate(s, n) {
+    if (!s) return '';
+    return s.length > n ? s.slice(0, n) + '...' : s;
+  }
+
+  function detectAddress() {
+    // Best effort: use the current page URL as the share address
+    const loc = window.location;
+    const addr = loc.protocol + '//' + loc.hostname + ':' + (loc.port || (loc.protocol === 'https:' ? '443' : '80'));
+    document.getElementById('share-address').textContent = addr;
+  }
+
+  function copyAddress() {
+    const addr = document.getElementById('share-address').textContent;
+    copyText(addr);
+    const msg = document.getElementById('copy-success');
+    msg.classList.remove('hidden');
+    setTimeout(() => msg.classList.add('hidden'), 2000);
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+    } else {
+      fallbackCopy(text);
+    }
+  }
+
+  function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+
+  // ═══════════════════════════════════════════
+  //  BOOT
+  // ═══════════════════════════════════════════
+
+  init();
+</script>
+</body>
+</html>

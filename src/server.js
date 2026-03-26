@@ -6,7 +6,7 @@ const rateLimit = require('@fastify/rate-limit');
 const db = require('./db');
 const { PeerDiscovery } = require('./discovery');
 
-const PORT = parseInt(process.env.PORT, 10) || 3000;
+const PORT = parseInt(process.env.PORT, 10) || 3001;
 const HOST = process.env.HOST || '0.0.0.0';
 
 let discovery = null;
@@ -51,6 +51,7 @@ async function build(options = {}) {
   await app.register(require('./routes/market'));
   await app.register(require('./routes/verify'));
   await app.register(require('./routes/nodes'));
+  await app.register(require('./routes/dashboard'));
 
   // Peer discovery — start after server is listening
   const selfEndpoint = process.env.PUBLIC_URL || `http://localhost:${PORT}`;
@@ -80,6 +81,16 @@ async function build(options = {}) {
   return app;
 }
 
+// Auto-open browser with the dashboard
+function openBrowser(url) {
+  if (process.env.OPEN_BROWSER === 'false') return;
+  const { exec } = require('child_process');
+  const platform = process.platform;
+  if (platform === 'win32') exec(`start "" "${url}"`);
+  else if (platform === 'darwin') exec(`open "${url}"`);
+  else exec(`xdg-open "${url}" 2>/dev/null || true`);
+}
+
 // Start server if run directly
 if (require.main === module) {
   build().then(app => {
@@ -88,9 +99,14 @@ if (require.main === module) {
         app.log.error(err);
         process.exit(1);
       }
+      const dashboardUrl = `http://localhost:${PORT}/dashboard`;
       app.log.info(`Agent Marketplace server listening on ${address}`);
+      app.log.info(`Dashboard: ${dashboardUrl}`);
+      console.log(`\n  Your node is running! Dashboard: ${dashboardUrl}\n`);
       // Start peer discovery after server is listening
       if (discovery) discovery.start();
+      // Open dashboard in default browser
+      openBrowser(dashboardUrl);
     });
   });
 }

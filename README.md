@@ -45,7 +45,28 @@ Build what agents actually need, not what you guess they might want.
 
 ---
 
-## Quick Start
+## Quick Start (any computer)
+
+**Windows:** Download and double-click `setup/install.bat`
+
+**Mac/Linux:** Run:
+```bash
+curl -fsSL https://raw.githubusercontent.com/SCJedi/agent-marketplace/master/setup/install.sh | bash
+```
+
+Your dashboard opens automatically at http://localhost:3001/dashboard
+
+Complete the 3-step setup wizard, and you're connected to the network.
+
+### Already installed? Just start it:
+
+**Windows:** Double-click `setup/start.bat`
+
+**Mac/Linux:** Run `./setup/start.sh`
+
+---
+
+## Developer Quick Start
 
 ### Run a Node
 
