@@ -189,6 +189,8 @@ function initTables() {
     `ALTER TABLE content ADD COLUMN visibility TEXT DEFAULT 'public'`,
     `ALTER TABLE content ADD COLUMN owner_key TEXT`,
     `ALTER TABLE content ADD COLUMN token_cost_saved REAL DEFAULT 0`,
+    `ALTER TABLE artifacts ADD COLUMN visibility TEXT DEFAULT 'public'`,
+    `ALTER TABLE artifacts ADD COLUMN owner_key TEXT`,
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch (e) { /* column already exists */ }

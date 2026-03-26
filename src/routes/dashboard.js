@@ -550,6 +550,10 @@ async function dashboardRoutes(fastify, options) {
       const basename = normalizedPath.split('/').pop() || 'untitled';
       const ext = basename.includes('.') ? basename.split('.').pop() : 'text';
 
+      // Get the first available API key as owner
+      const keys = db.getDb().prepare('SELECT * FROM api_keys LIMIT 1').all();
+      const ownerKey = request.headers['x-api-key'] || (keys.length > 0 ? keys[0].key : null);
+
       const record = db.contentPublishWithHash({
         url: fileUrl,
         source_hash: sourceHash,
@@ -562,6 +566,7 @@ async function dashboardRoutes(fastify, options) {
         }),
         price: 0.0001,
         visibility: visibility || 'private',
+        owner_key: ownerKey,
       });
 
       logActivity('publish-file', `Published file: ${basename}`);
