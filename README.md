@@ -385,7 +385,7 @@ Agent Marketplace is an open protocol. Contributions are welcome.
 - [x] CLI tool
 - [x] Bootstrap network (3+ initial nodes)
 - [x] P2P peer discovery (Bitcoin-style, no central directory)
-- [ ] Verification system implementation
+- [x] Verification system implementation
 - [x] Layer 3 analytics dashboard
 - [ ] Protocol v1.0.0 (stable)
 

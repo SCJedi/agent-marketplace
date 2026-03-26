@@ -297,6 +297,92 @@
     .badge.healthy { background: rgba(34,197,94,0.15); color: var(--green); }
     .badge.degraded { background: rgba(234,179,8,0.15); color: var(--yellow); }
     .badge.down { background: rgba(239,68,68,0.15); color: var(--red); }
+    .badge.verified { background: rgba(34,197,94,0.15); color: var(--green); }
+    .badge.pending-verify { background: rgba(234,179,8,0.15); color: var(--yellow); }
+    .badge.failed-verify { background: rgba(239,68,68,0.15); color: var(--red); }
+    .badge.unverified { background: rgba(139,146,168,0.1); color: var(--text-muted); }
+
+    .verify-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .verify-card h4 { margin-bottom: 8px; }
+    .verify-card .meta { color: var(--text-muted); font-size: 13px; margin-bottom: 12px; }
+
+    .check-list { list-style: none; padding: 0; margin: 12px 0; }
+    .check-list li {
+      padding: 6px 0;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .check-pass { color: var(--green); }
+    .check-fail { color: var(--red); }
+
+    .verdict-form { margin-top: 16px; }
+    .verdict-form label {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      border-radius: var(--radius);
+    }
+    .verdict-form label:hover { background: rgba(255,255,255,0.03); }
+    .verdict-form textarea {
+      width: 100%;
+      min-height: 60px;
+      padding: 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 14px;
+      margin-top: 8px;
+      resize: vertical;
+    }
+
+    .verify-status-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .verify-status-box .stat-row {
+      display: flex;
+      gap: 24px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .verify-status-box .stat-item {
+      text-align: center;
+    }
+    .verify-status-box .stat-item .num {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .verify-status-box .stat-item .lbl {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .content-preview {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      font-size: 13px;
+      color: var(--text-muted);
+      max-height: 120px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 8px 0;
+    }
 
     .empty-state {
       text-align: center;
@@ -1049,6 +1135,7 @@
       <div class="tab" data-tab="share" onclick="showTab('share')">Share</div>
       <div class="tab" data-tab="ledger" onclick="showTab('ledger')">Ledger</div>
       <div class="tab" data-tab="analytics" onclick="showTab('analytics')">Analytics</div>
+      <div class="tab" data-tab="verify" onclick="showTab('verify')">Verify</div>
       <div class="tab" data-tab="activity" onclick="showTab('activity')">Activity</div>
       <div class="tab" data-tab="settings" onclick="showTab('settings')">Settings</div>
     </div>
@@ -1281,10 +1368,10 @@
         <div class="panel-body">
           <table class="data-table">
             <thead>
-              <tr><th>Name</th><th>Visibility</th><th>Price</th><th>Size</th><th>Published</th><th></th></tr>
+              <tr><th>Name</th><th>Status</th><th>Visibility</th><th>Price</th><th>Size</th><th>Published</th><th></th></tr>
             </thead>
             <tbody id="content-table-body">
-              <tr><td colspan="5"><div class="loading-overlay"><div class="spinner"></div> Loading...</div></td></tr>
+              <tr><td colspan="7"><div class="loading-overlay"><div class="spinner"></div> Loading...</div></td></tr>
             </tbody>
           </table>
         </div>
@@ -1695,6 +1782,121 @@
       </div>
     </div>
 
+    <!-- ─── VERIFY TAB ──────────────────── -->
+    <div class="tab-content" id="tab-verify">
+      <h2 style="font-size:18px; margin-bottom:16px">Verification</h2>
+
+      <!-- Verifier Status -->
+      <div class="verify-status-box" id="verify-status-box">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px">
+          <div>
+            <strong>Your Verification Status</strong>
+            <div id="verifier-status-text" style="color:var(--text-muted); font-size:14px; margin-top:4px">Loading...</div>
+          </div>
+          <div id="verifier-actions">
+            <button class="btn" id="join-verifier-btn" onclick="joinVerifierPool()" style="display:none">Join Verifier Pool</button>
+            <button class="btn secondary" id="leave-verifier-btn" onclick="leaveVerifierPool()" style="display:none">Leave Pool</button>
+          </div>
+        </div>
+        <div class="stat-row" id="verify-stats" style="display:none">
+          <div class="stat-item">
+            <div class="num" id="vs-total">0</div>
+            <div class="lbl">Verifications Done</div>
+          </div>
+          <div class="stat-item">
+            <div class="num" id="vs-agreement">--</div>
+            <div class="lbl">Agreement Rate</div>
+          </div>
+          <div class="stat-item">
+            <div class="num" id="vs-pending">0</div>
+            <div class="lbl">Pending Jobs</div>
+          </div>
+        </div>
+        <div style="margin-top:12px; font-size:13px; color:var(--text-muted)">
+          Stake required: Recording only (no payment system yet). You'll be randomly assigned content to verify.
+        </div>
+      </div>
+
+      <!-- Request Verification for Your Content -->
+      <div class="panel">
+        <div class="panel-header">
+          <span>Your Content — Verification Status</span>
+        </div>
+        <div class="panel-body">
+          <table class="data-table">
+            <thead>
+              <tr><th>Name</th><th>Status</th><th>Action</th></tr>
+            </thead>
+            <tbody id="verify-content-body">
+              <tr><td colspan="3"><div class="loading-overlay"><div class="spinner"></div> Loading...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Pending Verification Jobs -->
+      <div class="panel" id="pending-jobs-panel">
+        <div class="panel-header">
+          <span>Pending Verification Jobs</span>
+          <span id="pending-jobs-count" style="color:var(--text-muted); font-size:13px"></span>
+        </div>
+        <div class="panel-body" id="pending-jobs-body">
+          <p class="empty-state">No pending verification jobs.</p>
+        </div>
+      </div>
+
+      <!-- Verification Detail (shown when "Verify Now" is clicked) -->
+      <div class="panel" id="verify-detail-panel" style="display:none">
+        <div class="panel-header">
+          <span>Verifying: <strong id="verify-detail-title"></strong></span>
+          <button class="btn small secondary" onclick="closeVerifyDetail()">Close</button>
+        </div>
+        <div class="panel-body padded">
+          <div class="content-preview" id="verify-detail-preview">Loading content...</div>
+
+          <h4 style="margin-top:16px; margin-bottom:8px">Automated Checks</h4>
+          <ul class="check-list" id="verify-checks-list">
+            <li>Running checks...</li>
+          </ul>
+
+          <div class="verdict-form">
+            <h4>Your Verdict</h4>
+            <label>
+              <input type="radio" name="verdict" value="approve" checked>
+              <span style="color:var(--green); font-weight:600">Approve</span> — content is legitimate
+            </label>
+            <label>
+              <input type="radio" name="verdict" value="reject">
+              <span style="color:var(--red); font-weight:600">Reject</span> — content has issues
+            </label>
+
+            <textarea id="verify-notes" placeholder="Notes (optional) — explain any issues found..."></textarea>
+
+            <div style="margin-top:12px; display:flex; justify-content:flex-end; gap:8px">
+              <button class="btn secondary" onclick="closeVerifyDetail()">Cancel</button>
+              <button class="btn" id="submit-verdict-btn" onclick="submitVerdict()">Submit Verification</button>
+            </div>
+          </div>
+
+          <div id="verify-submit-result" class="success-msg hidden" style="margin-top:12px"></div>
+          <div id="verify-submit-error" class="error-msg hidden" style="margin-top:12px"></div>
+        </div>
+      </div>
+
+      <!-- Info box -->
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-top:16px">
+        <strong style="font-size:14px">How verification works</strong>
+        <ul style="margin-top:8px; padding-left:20px; color:var(--text-muted); font-size:13px; line-height:1.8">
+          <li>Publishers request verification for their content</li>
+          <li>3 verifiers are randomly assigned from the pool (publisher excluded)</li>
+          <li>Each verifier runs automated checks and provides a human verdict</li>
+          <li>Majority vote (2/3) determines pass/fail</li>
+          <li>Verified content shows a green badge in search results and the content list</li>
+          <li>Verifiers build reputation through their agreement rate</li>
+        </ul>
+      </div>
+    </div>
+
     <!-- ─── SETTINGS TAB ─────────────────── -->
     <div class="tab-content" id="tab-settings">
       <h2 style="font-size:18px; margin-bottom:16px">Settings</h2>
@@ -1964,6 +2166,7 @@
     const tab = active.dataset.tab;
     if (tab === 'content' || tab === 'overview') loadContent();
     if (tab === 'peers' || tab === 'overview') loadPeers();
+    if (tab === 'verify') loadVerifyTab();
     if (tab === 'activity') loadActivity();
   }
 
@@ -2028,9 +2231,16 @@
       const totalEl = document.getElementById('content-total');
       if (totalEl) totalEl.textContent = data.data.total ? data.data.total + ' items' : '';
       if (items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No content published yet. Use the form above to add files, text, or URLs.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No content published yet. Use the form above to add files, text, or URLs.</td></tr>';
       } else {
-        tbody.innerHTML = items.map(renderContentRow4Col).join('');
+        // Fetch verification statuses for badges
+        let verifyStatuses = {};
+        try {
+          const vResp = await fetch(API + '/verify/content-status');
+          const vData = await vResp.json();
+          if (vData.success) verifyStatuses = vData.data;
+        } catch (e) { /* silent */ }
+        tbody.innerHTML = items.map(item => renderContentRow4Col(item, verifyStatuses[item.id])).join('');
       }
     } catch (e) { /* silent */ }
   }
@@ -2042,7 +2252,7 @@
     return `<tr><td title="${escapeHtml(item.url)}">${url}</td><td>${vis}</td><td>${price}</td></tr>`;
   }
 
-  function renderContentRow4Col(item) {
+  function renderContentRow4Col(item, verifyInfo) {
     const vis = visibilityBadge(item.visibility);
     // Extract a friendly name from the URL
     let name = item.url || '';
@@ -2065,8 +2275,23 @@
     const priceDisplay = (!item.price || item.price === 0)
       ? '<span style="color:var(--green)">Free</span>'
       : '$' + item.price.toFixed(4);
+
+    // Verification badge
+    const vStatus = verifyInfo ? verifyInfo.status : 'unverified';
+    let verifyBadge;
+    if (vStatus === 'passed') {
+      verifyBadge = '<span class="badge verified">&#10003; Verified</span>';
+    } else if (vStatus === 'pending') {
+      verifyBadge = '<span class="badge pending-verify">&#9679; Pending</span>';
+    } else if (vStatus === 'failed') {
+      verifyBadge = '<span class="badge failed-verify">&#10007; Failed</span>';
+    } else {
+      verifyBadge = '<span class="badge unverified">Unverified</span>';
+    }
+
     return `<tr>
       <td title="${escapeHtml(item.url)}">${escapeHtml(name)}</td>
+      <td>${verifyBadge}</td>
       <td>${vis}</td>
       <td>${priceDisplay}</td>
       <td>${sizeStr}</td>
@@ -3483,10 +3708,287 @@
     if (tabName === 'content') loadContent();
     if (tabName === 'peers') loadPeers();
     if (tabName === 'share') loadNetworkInfo();
+    if (tabName === 'verify') loadVerifyTab();
     if (tabName === 'ledger') loadLedger();
     if (tabName === 'analytics') { loadAnalytics(); startAnalyticsPolling(); }
     if (tabName === 'activity') loadActivity();
     if (tabName === 'settings') { loadConfig(); loadKeys(); }
+  }
+
+  // ═══════════════════════════════════════════
+  //  VERIFICATION
+  // ═══════════════════════════════════════════
+
+  let currentVerifyRequestId = null;
+  let currentVerifyContentId = null;
+
+  async function loadVerifyTab() {
+    await Promise.all([
+      loadVerifyStatus(),
+      loadVerifyContentList(),
+      loadPendingJobs()
+    ]);
+  }
+
+  async function loadVerifyStatus() {
+    try {
+      const resp = await fetch(API + '/verify/status');
+      const data = await resp.json();
+      if (!data.success) return;
+      const d = data.data;
+
+      const statusText = document.getElementById('verifier-status-text');
+      const joinBtn = document.getElementById('join-verifier-btn');
+      const leaveBtn = document.getElementById('leave-verifier-btn');
+      const statsRow = document.getElementById('verify-stats');
+
+      if (d.isVerifier && d.verifier) {
+        statusText.innerHTML = '<span style="color:var(--green); font-weight:600">Active Verifier</span>';
+        joinBtn.style.display = 'none';
+        leaveBtn.style.display = '';
+        leaveBtn.setAttribute('data-id', d.verifier.id);
+        statsRow.style.display = 'flex';
+        document.getElementById('vs-total').textContent = d.verifier.totalVerifications || 0;
+        document.getElementById('vs-agreement').textContent =
+          d.verifier.agreementRate !== undefined ? (d.verifier.agreementRate * 100).toFixed(0) + '%' : '--';
+        document.getElementById('vs-pending').textContent = d.pendingCount || 0;
+      } else {
+        statusText.innerHTML = 'Not a verifier <span style="color:var(--text-muted)">(Join to earn from verifying others\' content)</span>';
+        joinBtn.style.display = '';
+        leaveBtn.style.display = 'none';
+        statsRow.style.display = 'none';
+      }
+    } catch (e) { /* silent */ }
+  }
+
+  async function joinVerifierPool() {
+    try {
+      const btn = document.getElementById('join-verifier-btn');
+      btn.disabled = true;
+      btn.textContent = 'Joining...';
+      const resp = await fetch(API + '/verify/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const data = await resp.json();
+      if (data.success) {
+        await loadVerifyStatus();
+      } else {
+        alert('Error: ' + (data.error || 'Unknown'));
+      }
+      btn.disabled = false;
+      btn.textContent = 'Join Verifier Pool';
+    } catch (e) {
+      alert('Failed to join verifier pool');
+      document.getElementById('join-verifier-btn').disabled = false;
+      document.getElementById('join-verifier-btn').textContent = 'Join Verifier Pool';
+    }
+  }
+
+  async function leaveVerifierPool() {
+    const btn = document.getElementById('leave-verifier-btn');
+    const verifierId = btn.getAttribute('data-id');
+    if (!verifierId) return;
+    try {
+      btn.disabled = true;
+      const resp = await fetch(API + '/verify/leave', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ verifier_id: verifierId })
+      });
+      const data = await resp.json();
+      if (data.success) {
+        await loadVerifyStatus();
+      } else {
+        alert('Error: ' + (data.error || 'Unknown'));
+      }
+      btn.disabled = false;
+    } catch (e) {
+      alert('Failed to leave pool');
+      btn.disabled = false;
+    }
+  }
+
+  async function loadVerifyContentList() {
+    try {
+      const [contentResp, statusResp] = await Promise.all([
+        fetch(API + '/content?limit=50'),
+        fetch(API + '/verify/content-status')
+      ]);
+      const contentData = await contentResp.json();
+      const statusData = await statusResp.json();
+      if (!contentData.success) return;
+
+      const items = contentData.data.items || [];
+      const statuses = statusData.success ? statusData.data : {};
+      const tbody = document.getElementById('verify-content-body');
+
+      if (items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="empty-state">No content published yet.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = items.map(item => {
+        const vInfo = statuses[item.id] || { status: 'unverified' };
+        let name = item.url || '';
+        if (name.startsWith('file:///')) name = name.replace('file:///', '').split('/').pop();
+        else if (name.startsWith('text://')) name = name.replace('text://', '');
+        else name = truncate(name, 40);
+
+        let badge, action;
+        if (vInfo.status === 'passed') {
+          badge = '<span class="badge verified">&#10003; Verified</span>';
+          action = '<span style="color:var(--text-muted); font-size:13px">Verified</span>';
+        } else if (vInfo.status === 'pending') {
+          badge = '<span class="badge pending-verify">&#9679; Pending</span>';
+          action = '<span style="color:var(--text-muted); font-size:13px">Awaiting verifiers</span>';
+        } else if (vInfo.status === 'failed') {
+          badge = '<span class="badge failed-verify">&#10007; Failed</span>';
+          action = `<button class="btn small" onclick="requestVerification('${item.id}')">Re-request</button>`;
+        } else {
+          badge = '<span class="badge unverified">Unverified</span>';
+          action = `<button class="btn small" onclick="requestVerification('${item.id}')">Request Verification</button>`;
+        }
+        return `<tr><td title="${escapeHtml(item.url)}">${escapeHtml(name)}</td><td>${badge}</td><td>${action}</td></tr>`;
+      }).join('');
+    } catch (e) { /* silent */ }
+  }
+
+  async function requestVerification(contentId) {
+    try {
+      const resp = await fetch(API + '/verify/request/' + contentId, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      const data = await resp.json();
+      if (data.success) {
+        alert(data.data.message || 'Verification requested. 3 verifiers will check this content.');
+        loadVerifyContentList();
+        loadContent(); // refresh badges in content tab too
+      } else {
+        alert('Error: ' + (data.error || 'Unknown'));
+      }
+    } catch (e) {
+      alert('Failed to request verification');
+    }
+  }
+
+  async function loadPendingJobs() {
+    try {
+      const resp = await fetch(API + '/verify/pending');
+      const data = await resp.json();
+      if (!data.success) return;
+
+      const jobs = data.data || [];
+      const body = document.getElementById('pending-jobs-body');
+      const countEl = document.getElementById('pending-jobs-count');
+      countEl.textContent = jobs.length > 0 ? jobs.length + ' pending' : '';
+
+      if (jobs.length === 0) {
+        body.innerHTML = '<p class="empty-state">No pending verification jobs.</p>';
+        return;
+      }
+
+      body.innerHTML = jobs.map(job => `
+        <div class="verify-card">
+          <h4>${escapeHtml(job.title || job.artifact_id)}</h4>
+          <div class="meta">by ${escapeHtml(job.publisher_short)} &mdash; requested ${job.created_at ? new Date(job.created_at).toLocaleString() : 'recently'}</div>
+          <button class="btn small" onclick="openVerifyDetail('${job.id}', '${job.artifact_id}', '${escapeHtml(job.title || '')}')">Verify Now</button>
+        </div>
+      `).join('');
+    } catch (e) { /* silent */ }
+  }
+
+  async function openVerifyDetail(requestId, contentId, title) {
+    currentVerifyRequestId = requestId;
+    currentVerifyContentId = contentId;
+    document.getElementById('verify-detail-panel').style.display = '';
+    document.getElementById('verify-detail-title').textContent = title || contentId;
+    document.getElementById('verify-detail-preview').textContent = 'Loading content...';
+    document.getElementById('verify-checks-list').innerHTML = '<li>Running automated checks...</li>';
+    document.getElementById('verify-submit-result').classList.add('hidden');
+    document.getElementById('verify-submit-error').classList.add('hidden');
+    document.getElementById('verify-notes').value = '';
+    document.querySelector('input[name="verdict"][value="approve"]').checked = true;
+
+    // Load content preview
+    try {
+      const resp = await fetch(API + '/verify/check/' + contentId);
+      const data = await resp.json();
+      if (!data.success) {
+        document.getElementById('verify-detail-preview').textContent = 'Could not load content: ' + (data.error || 'Unknown error');
+        document.getElementById('verify-checks-list').innerHTML = '<li class="check-fail">Could not run checks</li>';
+        return;
+      }
+
+      // Show first 500 chars of content as preview
+      // We need to fetch the actual content separately since checks don't return it
+      // The check endpoint ran the checks server-side; show check results
+      const checks = data.data.checks || [];
+      document.getElementById('verify-checks-list').innerHTML = checks.map(c =>
+        `<li class="${c.passed ? 'check-pass' : 'check-fail'}">${c.passed ? '&#10003;' : '&#10007;'} ${escapeHtml(c.label)}</li>`
+      ).join('');
+
+      document.getElementById('verify-detail-preview').textContent =
+        `Automated checks: ${data.data.passedCount}/${data.data.totalCount} passed` +
+        (data.data.allPassed ? ' — all checks pass' : ' — some checks failed');
+    } catch (e) {
+      document.getElementById('verify-detail-preview').textContent = 'Error loading content';
+      document.getElementById('verify-checks-list').innerHTML = '<li class="check-fail">Network error running checks</li>';
+    }
+
+    // Scroll to the detail panel
+    document.getElementById('verify-detail-panel').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function closeVerifyDetail() {
+    document.getElementById('verify-detail-panel').style.display = 'none';
+    currentVerifyRequestId = null;
+    currentVerifyContentId = null;
+  }
+
+  async function submitVerdict() {
+    if (!currentVerifyRequestId) return;
+
+    const btn = document.getElementById('submit-verdict-btn');
+    btn.disabled = true;
+    btn.textContent = 'Submitting...';
+
+    const verdict = document.querySelector('input[name="verdict"]:checked').value;
+    const notes = document.getElementById('verify-notes').value;
+    const passed = verdict === 'approve';
+
+    try {
+      const resp = await fetch(API + '/verify/submit/' + currentVerifyRequestId, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passed, notes })
+      });
+      const data = await resp.json();
+
+      if (data.success) {
+        const resultEl = document.getElementById('verify-submit-result');
+        resultEl.textContent = data.data.message || 'Verification submitted successfully.';
+        resultEl.classList.remove('hidden');
+        document.getElementById('verify-submit-error').classList.add('hidden');
+
+        // Refresh after short delay
+        setTimeout(() => {
+          closeVerifyDetail();
+          loadVerifyTab();
+          loadContent(); // refresh badges
+        }, 1500);
+      } else {
+        const errEl = document.getElementById('verify-submit-error');
+        errEl.textContent = 'Error: ' + (data.error || 'Unknown');
+        errEl.classList.remove('hidden');
+      }
+    } catch (e) {
+      const errEl = document.getElementById('verify-submit-error');
+      errEl.textContent = 'Network error submitting verdict.';
+      errEl.classList.remove('hidden');
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Submit Verification';
   }
 
   // ═══════════════════════════════════════════

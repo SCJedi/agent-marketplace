@@ -1364,6 +1364,366 @@ async function dashboardRoutes(fastify, options) {
       return reply.code(500).send({ success: false, data: null, error: err.message });
     }
   });
+
+  // ═══════════════════════════════════════════
+  //  VERIFICATION SYSTEM
+  // ═══════════════════════════════════════════
+
+  const { runChecks } = require('../verification/checks');
+
+  // GET /dashboard/api/verify/status — am I a verifier? what are my stats?
+  fastify.get('/dashboard/api/verify/status', async (request, reply) => {
+    try {
+      const d = db.getDb();
+      const keys = d.prepare('SELECT * FROM api_keys LIMIT 1').all();
+      const nodeId = keys.length > 0 ? keys[0].owner_id : null;
+
+      // Check if this node is in the verifier pool
+      let verifier = null;
+      if (nodeId) {
+        verifier = d.prepare('SELECT * FROM verifier_pool WHERE endpoint LIKE ? AND active = 1').get(`%${nodeId}%`);
+      }
+      // Also check by any active entry (single-node dashboard context)
+      if (!verifier) {
+        const allActive = d.prepare('SELECT * FROM verifier_pool WHERE active = 1').all();
+        verifier = allActive.length > 0 ? allActive[0] : null;
+      }
+
+      // Count pending verification requests
+      const pendingCount = d.prepare("SELECT COUNT(*) as cnt FROM verification_requests WHERE status = 'pending'").get().cnt;
+
+      // Get verification stats for content on this node
+      const verifiedCount = d.prepare('SELECT COUNT(*) as cnt FROM artifacts WHERE verified = 1').get().cnt;
+      const totalArtifacts = d.prepare('SELECT COUNT(*) as cnt FROM artifacts').get().cnt;
+
+      // Get content verification status summary
+      const contentWithVerification = d.prepare(`
+        SELECT c.id, c.url, vr.status as verification_status
+        FROM content c
+        LEFT JOIN verification_requests vr ON vr.artifact_id = c.id
+      `).all();
+
+      return {
+        success: true,
+        data: {
+          isVerifier: !!verifier,
+          verifier: verifier ? {
+            id: verifier.id,
+            totalVerifications: verifier.total_verifications,
+            agreementRate: verifier.agreement_rate,
+            stakeAmount: verifier.stake_amount
+          } : null,
+          pendingCount,
+          verifiedArtifacts: verifiedCount,
+          totalArtifacts,
+          nodeId
+        },
+        error: null
+      };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // POST /dashboard/api/verify/join — join the verifier pool from dashboard
+  fastify.post('/dashboard/api/verify/join', async (request, reply) => {
+    try {
+      const d = db.getDb();
+      const keys = d.prepare('SELECT * FROM api_keys LIMIT 1').all();
+      const nodeId = keys.length > 0 ? keys[0].owner_id : 'dashboard-user';
+
+      // Build endpoint from node context
+      const config = loadConfig();
+      const nodeName = config ? config.nodeName : 'local';
+      const endpoint = `http://localhost:${process.env.PORT || 3001}/verify`;
+
+      // Check if already in pool
+      const existing = d.prepare('SELECT * FROM verifier_pool WHERE endpoint = ? AND active = 1').get(endpoint);
+      if (existing) {
+        return { success: true, data: { verifier: existing, message: 'Already in verifier pool' }, error: null };
+      }
+
+      const verifier = db.joinVerifierPool(endpoint, 0);
+      logActivity('verify', `Joined verifier pool as ${nodeName}`);
+
+      return reply.code(201).send({ success: true, data: { verifier }, error: null });
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // POST /dashboard/api/verify/leave — leave the verifier pool
+  fastify.post('/dashboard/api/verify/leave', async (request, reply) => {
+    try {
+      const body = request.body || {};
+      if (!body.verifier_id) {
+        return reply.code(400).send({ success: false, data: null, error: 'verifier_id is required' });
+      }
+      const result = db.leaveVerifierPool(body.verifier_id);
+      if (!result) {
+        return reply.code(404).send({ success: false, data: null, error: 'Verifier not found' });
+      }
+      logActivity('verify', 'Left verifier pool');
+      return { success: true, data: { message: 'Left verifier pool' }, error: null };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // GET /dashboard/api/verify/pending — pending verification jobs
+  fastify.get('/dashboard/api/verify/pending', async (request, reply) => {
+    try {
+      const d = db.getDb();
+      const pending = d.prepare(`
+        SELECT vr.*, c.url, c.content_metadata
+        FROM verification_requests vr
+        LEFT JOIN content c ON c.id = vr.artifact_id
+        WHERE vr.status = 'pending'
+        ORDER BY vr.created_at ASC
+      `).all();
+
+      // Enrich with content preview
+      const enriched = pending.map(p => {
+        let title = p.url || p.artifact_id;
+        try {
+          const meta = typeof p.content_metadata === 'string' ? JSON.parse(p.content_metadata) : p.content_metadata;
+          if (meta && (meta.title || meta.name || meta.filename)) {
+            title = meta.title || meta.name || meta.filename;
+          }
+        } catch (e) { /* ignore */ }
+        return {
+          ...p,
+          title,
+          publisher_short: (p.publisher_id || '').substring(0, 8) + '...'
+        };
+      });
+
+      return { success: true, data: enriched, error: null };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // POST /dashboard/api/verify/request/:id — request verification for content
+  fastify.post('/dashboard/api/verify/request/:id', async (request, reply) => {
+    try {
+      const contentId = request.params.id;
+      const d = db.getDb();
+
+      // Check content exists
+      const content = d.prepare('SELECT * FROM content WHERE id = ?').get(contentId);
+      if (!content) {
+        return reply.code(404).send({ success: false, data: null, error: 'Content not found' });
+      }
+
+      // Check if verification already requested
+      const existing = d.prepare("SELECT * FROM verification_requests WHERE artifact_id = ? AND status IN ('pending', 'passed')").get(contentId);
+      if (existing) {
+        return reply.code(409).send({
+          success: false, data: null,
+          error: existing.status === 'passed' ? 'Content already verified' : 'Verification already pending'
+        });
+      }
+
+      // Ensure an artifact record exists for this content (FK constraint requires it)
+      const artifactExists = d.prepare('SELECT id FROM artifacts WHERE id = ?').get(contentId);
+      if (!artifactExists) {
+        let contentName = content.url || contentId;
+        let contentMeta = {};
+        try {
+          contentMeta = typeof content.content_metadata === 'string' ? JSON.parse(content.content_metadata) : (content.content_metadata || {});
+        } catch (e) { /* ignore */ }
+        const name = contentMeta.title || contentMeta.name || contentMeta.filename || contentName;
+        const slug = contentId; // use content ID as slug for auto-created artifacts
+        try {
+          d.prepare(`INSERT INTO artifacts (id, slug, name, category, description, verified) VALUES (?, ?, ?, ?, ?, 0)`)
+            .run(contentId, slug, name, 'content', 'Auto-created for verification of: ' + (content.url || contentId));
+        } catch (e) {
+          // Slug collision — try with random suffix
+          d.prepare(`INSERT INTO artifacts (id, slug, name, category, description, verified) VALUES (?, ?, ?, ?, ?, 0)`)
+            .run(contentId, slug + '-' + Date.now(), name, 'content', 'Auto-created for verification of: ' + (content.url || contentId));
+        }
+      }
+
+      // Get publisher identity
+      const keys = d.prepare('SELECT * FROM api_keys LIMIT 1').all();
+      const publisherId = keys.length > 0 ? keys[0].owner_id : (content.provider_id || 'dashboard-user');
+
+      // Create verification request
+      const verificationRequest = db.createVerificationRequest(contentId, publisherId, 0);
+
+      // Try to assign verifiers (may not have enough in pool)
+      let assignedVerifiers = [];
+      try {
+        assignedVerifiers = db.selectVerifiersForRequest(3, publisherId, verificationRequest.id);
+      } catch (e) {
+        // Pool may be empty — that's OK, request is still created as pending
+      }
+
+      logActivity('verify', `Requested verification for ${content.url || contentId}`);
+
+      return reply.code(201).send({
+        success: true,
+        data: {
+          request: verificationRequest,
+          assignedVerifiers: assignedVerifiers.length,
+          message: assignedVerifiers.length > 0
+            ? `${assignedVerifiers.length} verifiers assigned`
+            : 'Request created. Waiting for verifiers to join the pool.'
+        },
+        error: null
+      });
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // GET /dashboard/api/verify/check/:id — run automated checks on content
+  fastify.get('/dashboard/api/verify/check/:id', async (request, reply) => {
+    try {
+      const contentId = request.params.id;
+      const content = db.getContentById(contentId);
+      if (!content) {
+        return reply.code(404).send({ success: false, data: null, error: 'Content not found' });
+      }
+
+      const checkResults = runChecks(content);
+      return { success: true, data: checkResults, error: null };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // POST /dashboard/api/verify/submit/:id — submit verification verdict from dashboard
+  fastify.post('/dashboard/api/verify/submit/:id', async (request, reply) => {
+    try {
+      const requestId = request.params.id;
+      const body = request.body || {};
+      const d = db.getDb();
+
+      // Validate the request exists and is pending
+      const vr = d.prepare('SELECT * FROM verification_requests WHERE id = ?').get(requestId);
+      if (!vr) {
+        return reply.code(404).send({ success: false, data: null, error: 'Verification request not found' });
+      }
+      if (vr.status !== 'pending') {
+        return reply.code(409).send({ success: false, data: null, error: `Verification already ${vr.status}` });
+      }
+
+      if (body.passed === undefined) {
+        return reply.code(400).send({ success: false, data: null, error: 'passed (boolean) is required' });
+      }
+
+      // Get or create verifier identity for this dashboard user
+      const keys = d.prepare('SELECT * FROM api_keys LIMIT 1').all();
+      const nodeId = keys.length > 0 ? keys[0].owner_id : 'dashboard-user';
+      const endpoint = `http://localhost:${process.env.PORT || 3001}/verify`;
+
+      // Find or create verifier in pool
+      let verifier = d.prepare('SELECT * FROM verifier_pool WHERE endpoint = ? AND active = 1').get(endpoint);
+      if (!verifier) {
+        verifier = db.joinVerifierPool(endpoint, 0);
+      }
+
+      // Run automated checks for the report
+      const content = db.getContentById(vr.artifact_id);
+      let autoChecks = null;
+      if (content) {
+        autoChecks = runChecks(content);
+      }
+
+      const report = {
+        notes: body.notes || '',
+        automated_checks: autoChecks,
+        verdict: body.passed ? 'approve' : 'reject',
+        submitted_from: 'dashboard'
+      };
+
+      const result = db.submitVerificationResult(requestId, verifier.id, body.passed, report);
+
+      // Record as transaction
+      try {
+        const publisherKey = vr.publisher_id || 'unknown';
+        db.recordTransaction({
+          type: 'verification',
+          content_id: vr.artifact_id,
+          buyer_key: db.hashKey(publisherKey),
+          seller_key: db.hashKey(verifier.id),
+          paid_price: 0,
+          payment_method: 'free',
+          metadata: JSON.stringify({
+            result: body.passed ? 'pass' : 'fail',
+            request_id: requestId,
+            checks: autoChecks
+          })
+        });
+      } catch (e) {
+        // Transaction recording is non-critical
+        request.log.warn('Failed to record verification transaction:', e.message);
+      }
+
+      logActivity('verify', `Submitted verification for request ${requestId}: ${body.passed ? 'APPROVED' : 'REJECTED'}`);
+
+      // Check if verification is now finalized
+      const updatedRequest = d.prepare('SELECT * FROM verification_requests WHERE id = ?').get(requestId);
+
+      return reply.code(201).send({
+        success: true,
+        data: {
+          result,
+          requestStatus: updatedRequest.status,
+          message: updatedRequest.status === 'pending'
+            ? 'Verdict submitted. Waiting for more verifiers.'
+            : `Verification ${updatedRequest.status}. Content is now ${updatedRequest.status === 'passed' ? 'verified' : 'rejected'}.`
+        },
+        error: null
+      });
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // GET /dashboard/api/verify/content-status — verification status for all content
+  fastify.get('/dashboard/api/verify/content-status', async (request, reply) => {
+    try {
+      const d = db.getDb();
+      // Get the latest verification request status for each content item
+      const statuses = d.prepare(`
+        SELECT c.id, c.url,
+          vr.status as verification_status,
+          vr.id as request_id,
+          vr.created_at as requested_at
+        FROM content c
+        LEFT JOIN verification_requests vr ON vr.artifact_id = c.id
+          AND vr.created_at = (
+            SELECT MAX(vr2.created_at) FROM verification_requests vr2 WHERE vr2.artifact_id = c.id
+          )
+        ORDER BY c.fetched_at DESC
+      `).all();
+
+      // Build a map: content_id -> { status, request_id }
+      const statusMap = {};
+      for (const row of statuses) {
+        statusMap[row.id] = {
+          status: row.verification_status || 'unverified',
+          requestId: row.request_id || null,
+          requestedAt: row.requested_at || null
+        };
+      }
+
+      return { success: true, data: statusMap, error: null };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
 }
 
 module.exports = dashboardRoutes;
