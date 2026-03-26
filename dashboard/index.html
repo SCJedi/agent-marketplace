@@ -442,6 +442,128 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
+    /* ── ANALYTICS ─────────────────────────────────── */
+
+    .analytics-header {
+      font-size: 20px; font-weight: 700; margin-bottom: 20px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .analytics-header .subtitle { color: var(--text-muted); font-size: 14px; font-weight: 400; }
+
+    .analytics-stats {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px;
+    }
+    .a-stat {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 16px; text-align: center;
+    }
+    .a-stat .a-val { font-size: 28px; font-weight: 700; color: var(--accent-hover); }
+    .a-stat .a-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .a-stat .a-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+    .a-score-bar {
+      width: 100%; height: 10px; background: var(--surface2); border-radius: 5px; margin-top: 8px; overflow: hidden;
+    }
+    .a-score-fill {
+      height: 100%; border-radius: 5px; transition: width 0.5s;
+      background: linear-gradient(90deg, var(--accent), var(--green));
+    }
+
+    .a-section { margin-bottom: 28px; }
+    .a-section-title {
+      font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+      color: var(--text-muted); margin-bottom: 12px; padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .a-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .a-list { list-style: none; }
+    .a-list li {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 12px; border-radius: 6px; margin-bottom: 4px;
+      background: var(--surface); border: 1px solid var(--border); font-size: 14px;
+    }
+    .a-list li .a-query { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .a-list li .a-count { font-weight: 600; color: var(--accent-hover); margin-left: 8px; white-space: nowrap; }
+    .a-list li.unmet { border-left: 3px solid var(--yellow); }
+    .a-list li.opp { border-left: 3px solid var(--green); }
+
+    .a-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px; }
+    .a-bar-label { width: 80px; text-align: right; color: var(--text-muted); flex-shrink: 0; }
+    .a-bar-track { flex: 1; height: 18px; background: var(--surface2); border-radius: 4px; overflow: hidden; position: relative; }
+    .a-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s; min-width: 2px; }
+    .a-bar-fill.green { background: var(--green); }
+    .a-bar-fill.yellow { background: var(--yellow); }
+    .a-bar-fill.red { background: var(--red); }
+    .a-bar-fill.accent { background: var(--accent); }
+    .a-bar-fill.blue { background: #3b82f6; }
+    .a-bar-val { width: 50px; font-weight: 600; flex-shrink: 0; }
+
+    .a-sparkline { font-family: monospace; font-size: 18px; letter-spacing: 2px; line-height: 1; color: var(--accent-hover); }
+    .a-sparkline-labels { font-size: 11px; color: var(--text-muted); letter-spacing: 6px; margin-top: 4px; }
+
+    .a-opp-card {
+      background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--green);
+      border-radius: var(--radius); padding: 14px; margin-bottom: 10px;
+    }
+    .a-opp-card .a-opp-title { font-weight: 600; margin-bottom: 4px; }
+    .a-opp-card .a-opp-meta { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+    .a-opp-card .a-opp-suggestion { font-size: 13px; color: var(--green); }
+    .a-opp-card .a-opp-value {
+      display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px;
+      border-radius: 10px; margin-left: 8px;
+    }
+    .a-opp-card .a-opp-value.high { background: rgba(34,197,94,0.15); color: var(--green); }
+    .a-opp-card .a-opp-value.medium { background: rgba(234,179,8,0.15); color: var(--yellow); }
+    .a-opp-card .a-opp-value.low { background: rgba(139,146,168,0.15); color: var(--text-muted); }
+
+    .a-trend-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .a-trend-tag {
+      font-size: 12px; padding: 4px 10px; border-radius: 12px; font-weight: 500;
+    }
+    .a-trend-tag.rising { background: rgba(34,197,94,0.12); color: var(--green); }
+    .a-trend-tag.declining { background: rgba(239,68,68,0.12); color: var(--red); }
+
+    .a-peer-row {
+      display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; font-size: 14px;
+    }
+    .a-peer-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .a-peer-dot.healthy { background: var(--green); }
+    .a-peer-dot.degraded { background: var(--yellow); }
+    .a-peer-dot.down { background: var(--red); }
+    .a-peer-name { flex: 1; font-weight: 500; }
+    .a-peer-meta { font-size: 12px; color: var(--text-muted); }
+
+    .a-score-detail { margin-top: 12px; }
+    .a-score-row {
+      display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 6px;
+    }
+    .a-score-row .a-score-icon { width: 18px; text-align: center; }
+    .a-score-row .a-score-name { flex: 1; }
+    .a-score-row .a-score-pts { font-weight: 600; color: var(--accent-hover); width: 40px; text-align: right; }
+
+    .a-tip {
+      background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2);
+      border-radius: var(--radius); padding: 12px 16px; font-size: 13px; color: var(--accent-hover);
+      margin-top: 12px;
+    }
+
+    .a-net-stats {
+      display: flex; gap: 24px; padding: 14px 16px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 16px;
+    }
+    .a-net-stat { text-align: center; }
+    .a-net-stat .a-net-val { font-size: 22px; font-weight: 700; color: var(--accent-hover); }
+    .a-net-stat .a-net-label { font-size: 11px; color: var(--text-muted); }
+
+    .a-empty { color: var(--text-muted); font-size: 14px; font-style: italic; padding: 12px; }
+
+    @media (max-width: 768px) {
+      .analytics-stats { grid-template-columns: 1fr 1fr; }
+      .a-two-col { grid-template-columns: 1fr; }
+    }
+
     /* ── LOADING ──────────────────────────────────── */
 
     .spinner {
@@ -925,6 +1047,7 @@
       <div class="tab" data-tab="peers" onclick="showTab('peers')">Peers</div>
       <div class="tab" data-tab="search" onclick="showTab('search')">Search</div>
       <div class="tab" data-tab="share" onclick="showTab('share')">Share</div>
+      <div class="tab" data-tab="analytics" onclick="showTab('analytics')">Analytics</div>
       <div class="tab" data-tab="activity" onclick="showTab('activity')">Activity</div>
       <div class="tab" data-tab="settings" onclick="showTab('settings')">Settings</div>
     </div>
@@ -1343,6 +1466,132 @@
     </div>
 
     <!-- ─── ACTIVITY TAB ──────────────────── -->
+    <!-- ─── ANALYTICS TAB ─────────────────── -->
+    <div class="tab-content" id="tab-analytics">
+      <div class="analytics-header">
+        ANALYTICS <span class="subtitle">Your Node Intelligence</span>
+      </div>
+
+      <!-- Overview Stats -->
+      <div class="analytics-stats">
+        <div class="a-stat">
+          <div class="a-val" id="a-total-content">--</div>
+          <div class="a-label">items</div>
+          <div class="a-sub" id="a-growth-content"></div>
+        </div>
+        <div class="a-stat">
+          <div class="a-val" id="a-total-searches">--</div>
+          <div class="a-label">searches logged</div>
+          <div class="a-sub" id="a-growth-search"></div>
+        </div>
+        <div class="a-stat">
+          <div class="a-val" id="a-unique-terms">--</div>
+          <div class="a-label">unique terms</div>
+        </div>
+        <div class="a-stat">
+          <div style="display:flex; align-items:baseline; justify-content:center; gap:4px">
+            <span style="font-size:14px; color:var(--text-muted)">Score:</span>
+            <span class="a-val" id="a-score-val">--</span>
+          </div>
+          <div class="a-score-bar"><div class="a-score-fill" id="a-score-bar-fill" style="width:0%"></div></div>
+          <div class="a-label" style="margin-top:4px">Data Value</div>
+        </div>
+      </div>
+
+      <!-- DEMAND SECTION -->
+      <div class="a-section">
+        <div class="a-section-title">DEMAND &mdash; what agents want</div>
+        <div class="a-two-col">
+          <div>
+            <h4 style="font-size:14px; margin-bottom:8px; font-weight:600">Top Searches</h4>
+            <ul class="a-list" id="a-top-searches">
+              <li><span class="a-query" style="color:var(--text-muted)">Loading...</span></li>
+            </ul>
+          </div>
+          <div>
+            <h4 style="font-size:14px; margin-bottom:8px; font-weight:600; color:var(--yellow)">Unmet Demand (opportunities!)</h4>
+            <ul class="a-list" id="a-unmet-demand">
+              <li><span class="a-query" style="color:var(--text-muted)">Loading...</span></li>
+            </ul>
+          </div>
+        </div>
+        <div style="margin-top:16px">
+          <h4 style="font-size:14px; margin-bottom:8px; font-weight:600">Demand Trend (7 days)</h4>
+          <div class="a-sparkline" id="a-demand-sparkline"></div>
+          <div class="a-sparkline-labels" id="a-demand-labels"></div>
+        </div>
+      </div>
+
+      <!-- SUPPLY SECTION -->
+      <div class="a-section">
+        <div class="a-section-title">SUPPLY &mdash; what you have</div>
+        <div class="a-two-col">
+          <div>
+            <h4 style="font-size:14px; margin-bottom:8px; font-weight:600">Most Popular Content</h4>
+            <ul class="a-list" id="a-top-content">
+              <li><span class="a-query" style="color:var(--text-muted)">Loading...</span></li>
+            </ul>
+          </div>
+          <div>
+            <h4 style="font-size:14px; margin-bottom:8px; font-weight:600">Content Breakdown</h4>
+            <div id="a-content-type-bars"></div>
+            <h4 style="font-size:14px; margin:16px 0 8px; font-weight:600">Freshness</h4>
+            <div id="a-freshness-bars"></div>
+            <h4 style="font-size:14px; margin:16px 0 8px; font-weight:600">Visibility</h4>
+            <div id="a-visibility-bars"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPPORTUNITIES SECTION -->
+      <div class="a-section">
+        <div class="a-section-title">OPPORTUNITIES</div>
+        <h4 style="font-size:14px; margin-bottom:10px; font-weight:600; color:var(--green)">High-value gaps (demand exists, no supply)</h4>
+        <div id="a-opportunities">
+          <div class="a-empty">Loading...</div>
+        </div>
+        <div style="margin-top:16px">
+          <div class="a-two-col">
+            <div>
+              <h4 style="font-size:13px; margin-bottom:8px; font-weight:600; color:var(--green)">Rising</h4>
+              <div class="a-trend-tags" id="a-rising"></div>
+            </div>
+            <div>
+              <h4 style="font-size:13px; margin-bottom:8px; font-weight:600; color:var(--red)">Declining</h4>
+              <div class="a-trend-tags" id="a-declining"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NETWORK SECTION -->
+      <div class="a-section">
+        <div class="a-section-title">NETWORK</div>
+        <div class="a-net-stats" id="a-net-stats">
+          <div class="a-net-stat"><div class="a-net-val" id="a-net-nodes">--</div><div class="a-net-label">new nodes (7d)</div></div>
+          <div class="a-net-stat"><div class="a-net-val" id="a-net-content">--</div><div class="a-net-label">content (7d)</div></div>
+          <div class="a-net-stat"><div class="a-net-val" id="a-net-searches">--</div><div class="a-net-label">searches (7d)</div></div>
+        </div>
+        <div id="a-peers-list"></div>
+      </div>
+
+      <!-- DATA VALUE SCORE -->
+      <div class="a-section">
+        <div class="a-section-title">DATA VALUE SCORE</div>
+        <div style="display:flex; align-items:center; gap:16px; margin-bottom:8px">
+          <span style="font-size:14px; color:var(--text-muted)">Your node's data value:</span>
+          <span style="font-size:24px; font-weight:700; color:var(--accent-hover)" id="a-score-big">--/100</span>
+        </div>
+        <div class="a-score-bar" style="height:14px; margin-bottom:16px">
+          <div class="a-score-fill" id="a-score-bar-big" style="width:0%"></div>
+        </div>
+        <h4 style="font-size:13px; margin-bottom:8px; font-weight:600">What increases your score:</h4>
+        <div class="a-score-detail" id="a-score-detail"></div>
+        <div class="a-tip" id="a-score-tip" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- ─── ACTIVITY TAB ─────────────────── -->
     <div class="tab-content" id="tab-activity">
       <h2 style="font-size:18px; margin-bottom:16px">Recent Activity</h2>
       <div class="panel">
@@ -2784,6 +3033,239 @@
   }
 
   // ═══════════════════════════════════════════
+  //  ANALYTICS
+  // ═══════════════════════════════════════════
+
+  let analyticsInterval = null;
+
+  async function loadAnalytics() {
+    try {
+      const [overviewRes, demandRes, supplyRes, oppRes, netRes] = await Promise.all([
+        fetch('/dashboard/api/analytics/overview').then(r => r.json()),
+        fetch('/dashboard/api/analytics/demand').then(r => r.json()),
+        fetch('/dashboard/api/analytics/supply').then(r => r.json()),
+        fetch('/dashboard/api/analytics/opportunities').then(r => r.json()),
+        fetch('/dashboard/api/analytics/network').then(r => r.json())
+      ]);
+
+      if (overviewRes.success) renderAnalyticsOverview(overviewRes.data);
+      if (demandRes.success) renderAnalyticsDemand(demandRes.data);
+      if (supplyRes.success) renderAnalyticsSupply(supplyRes.data);
+      if (oppRes.success) renderAnalyticsOpportunities(oppRes.data);
+      if (netRes.success) renderAnalyticsNetwork(netRes.data);
+      if (overviewRes.success) renderScoreDetail(overviewRes.data);
+    } catch (e) {
+      console.error('Analytics load error:', e);
+    }
+  }
+
+  function renderAnalyticsOverview(d) {
+    document.getElementById('a-total-content').textContent = d.totalContent;
+    document.getElementById('a-total-searches').textContent = d.totalSearches;
+    document.getElementById('a-unique-terms').textContent = d.uniqueSearchTerms;
+    document.getElementById('a-score-val').textContent = d.dataValueScore;
+    document.getElementById('a-score-bar-fill').style.width = d.dataValueScore + '%';
+    document.getElementById('a-growth-content').textContent = d.contentGrowthRate + '/day (7d)';
+    document.getElementById('a-growth-search').textContent = d.searchGrowthRate + '/day (7d)';
+  }
+
+  function renderAnalyticsDemand(d) {
+    // Top searches
+    const tsList = document.getElementById('a-top-searches');
+    if (d.topSearches.length === 0) {
+      tsList.innerHTML = '<li class="a-empty">No searches yet.</li>';
+    } else {
+      tsList.innerHTML = d.topSearches.slice(0, 8).map((s, i) =>
+        `<li><span class="a-query">${i + 1}. ${escapeHtml(s.query)}</span><span class="a-count">${s.count}x</span></li>`
+      ).join('');
+    }
+
+    // Unmet demand
+    const udList = document.getElementById('a-unmet-demand');
+    if (d.unmetDemand.length === 0) {
+      udList.innerHTML = '<li class="a-empty">All demand is met!</li>';
+    } else {
+      udList.innerHTML = d.unmetDemand.slice(0, 6).map(s =>
+        `<li class="unmet"><span class="a-query">&#9889; ${escapeHtml(s.query)}</span><span class="a-count">${s.searchCount}x</span></li>`
+      ).join('');
+    }
+
+    // Sparkline
+    renderSparkline(d.demandTrend);
+  }
+
+  function renderSparkline(trend) {
+    const sparkEl = document.getElementById('a-demand-sparkline');
+    const labelEl = document.getElementById('a-demand-labels');
+    if (!trend || trend.length === 0) {
+      sparkEl.textContent = 'No data yet';
+      labelEl.textContent = '';
+      return;
+    }
+    const blocks = [' ', '\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'];
+    const vals = trend.map(t => t.searches);
+    const max = Math.max(...vals, 1);
+    sparkEl.textContent = vals.map(v => blocks[Math.min(8, Math.round((v / max) * 8))]).join('');
+    labelEl.textContent = trend.map(t => {
+      const d = new Date(t.date + 'T00:00:00');
+      return ['S','M','T','W','T','F','S'][d.getDay()];
+    }).join('  ');
+  }
+
+  function renderAnalyticsSupply(d) {
+    // Top content
+    const tcList = document.getElementById('a-top-content');
+    if (d.topContent.length === 0) {
+      tcList.innerHTML = '<li class="a-empty">No content yet.</li>';
+    } else {
+      tcList.innerHTML = d.topContent.slice(0, 6).map((c, i) => {
+        const label = c.url.replace(/^(file:\/\/\/|https?:\/\/|text:\/\/)/, '').split('/').pop() || c.url;
+        return `<li><span class="a-query">${i + 1}. ${escapeHtml(truncate(label, 30))}</span><span class="a-count">${c.fetches}x</span></li>`;
+      }).join('');
+    }
+
+    // Content by type bars
+    renderBarChart('a-content-type-bars', d.contentByType, 'accent');
+
+    // Freshness bars
+    renderBarChart('a-freshness-bars', {
+      fresh: d.freshness.fresh,
+      recent: d.freshness.recent,
+      stale: d.freshness.stale
+    }, null, { fresh: 'green', recent: 'yellow', stale: 'red' });
+
+    // Visibility bars
+    renderBarChart('a-visibility-bars', d.contentByVisibility, 'blue');
+  }
+
+  function renderBarChart(containerId, data, defaultColor, colorMap) {
+    const el = document.getElementById(containerId);
+    const entries = Object.entries(data).filter(([k, v]) => v > 0);
+    if (entries.length === 0) {
+      el.innerHTML = '<div class="a-empty">No data</div>';
+      return;
+    }
+    const max = Math.max(...entries.map(([k, v]) => v), 1);
+    el.innerHTML = entries.map(([key, val]) => {
+      const pct = Math.max(2, (val / max) * 100);
+      const color = (colorMap && colorMap[key]) || defaultColor || 'accent';
+      return `<div class="a-bar-row">
+        <span class="a-bar-label">${key}</span>
+        <div class="a-bar-track"><div class="a-bar-fill ${color}" style="width:${pct}%"></div></div>
+        <span class="a-bar-val">${val}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function renderAnalyticsOpportunities(d) {
+    const oppEl = document.getElementById('a-opportunities');
+    if (d.opportunities.length === 0) {
+      oppEl.innerHTML = '<div class="a-empty">No unmet demand detected yet. Keep logging searches!</div>';
+    } else {
+      oppEl.innerHTML = d.opportunities.slice(0, 5).map(o =>
+        `<div class="a-opp-card">
+          <div class="a-opp-title">"${escapeHtml(o.query)}"
+            <span class="a-opp-value ${o.estimatedValue}">${o.estimatedValue}</span>
+          </div>
+          <div class="a-opp-meta">${o.searchCount} searches, ${o.competitorCount} provider(s) &middot; last searched ${o.lastSearched}</div>
+          <div class="a-opp-suggestion">&rarr; ${escapeHtml(o.suggestion)}</div>
+        </div>`
+      ).join('');
+    }
+
+    // Rising/declining tags
+    const risingEl = document.getElementById('a-rising');
+    if (d.risingDemand.length === 0) {
+      risingEl.innerHTML = '<span class="a-empty">No rising trends yet</span>';
+    } else {
+      risingEl.innerHTML = d.risingDemand.map(r =>
+        `<span class="a-trend-tag rising">${escapeHtml(r.query)} ${r.growth}</span>`
+      ).join('');
+    }
+
+    const declEl = document.getElementById('a-declining');
+    if (d.decliningDemand.length === 0) {
+      declEl.innerHTML = '<span class="a-empty">No declining trends</span>';
+    } else {
+      declEl.innerHTML = d.decliningDemand.map(r =>
+        `<span class="a-trend-tag declining">${escapeHtml(r.query)} ${r.growth}</span>`
+      ).join('');
+    }
+  }
+
+  function renderAnalyticsNetwork(d) {
+    // Network growth stats
+    document.getElementById('a-net-nodes').textContent = '+' + d.networkGrowth.nodesThisWeek;
+    document.getElementById('a-net-content').textContent = '+' + d.networkGrowth.contentThisWeek;
+    document.getElementById('a-net-searches').textContent = d.networkGrowth.searchesThisWeek;
+
+    // Peer list
+    const peersEl = document.getElementById('a-peers-list');
+    if (d.peerActivity.length === 0) {
+      peersEl.innerHTML = '<div class="a-empty">No peers connected yet.</div>';
+    } else {
+      peersEl.innerHTML = d.peerActivity.map(p =>
+        `<div class="a-peer-row">
+          <div class="a-peer-dot ${p.status}"></div>
+          <span class="a-peer-name">${escapeHtml(p.peer)}</span>
+          <span class="a-peer-meta">active ${p.lastActive}</span>
+        </div>`
+      ).join('');
+    }
+  }
+
+  function renderScoreDetail(d) {
+    const sb = d.scoreBreakdown;
+    const maxes = { volume: 20, diversity: 20, demand: 20, network: 15, freshness: 15, opportunity: 10 };
+    const labels = {
+      volume: `Content volume (${d.totalContent} items)`,
+      diversity: `Search diversity (${d.uniqueSearchTerms} unique terms)`,
+      demand: `Demand data (${d.totalSearches} logged searches)`,
+      network: `Network connections (${d.peersConnected} peers)`,
+      freshness: `Content freshness`,
+      opportunity: `Opportunity capture`
+    };
+
+    const detailEl = document.getElementById('a-score-detail');
+    detailEl.innerHTML = Object.entries(sb).map(([key, val]) => {
+      const icon = val >= maxes[key] * 0.5 ? '&#10003;' : '&#9675;';
+      const iconColor = val >= maxes[key] * 0.5 ? 'var(--green)' : 'var(--text-muted)';
+      return `<div class="a-score-row">
+        <span class="a-score-icon" style="color:${iconColor}">${icon}</span>
+        <span class="a-score-name">${labels[key]}</span>
+        <span class="a-score-pts">+${val}</span>
+      </div>`;
+    }).join('');
+
+    // Score summary
+    document.getElementById('a-score-big').textContent = d.dataValueScore + '/100';
+    document.getElementById('a-score-bar-big').style.width = d.dataValueScore + '%';
+
+    // Tip
+    const tipEl = document.getElementById('a-score-tip');
+    if (sb.opportunity < 5 && d.totalSearches > 0) {
+      tipEl.style.display = 'block';
+      tipEl.textContent = 'Tip: Fill unmet demand gaps to boost your score. Check the Opportunities section above!';
+    } else if (sb.network < 5) {
+      tipEl.style.display = 'block';
+      tipEl.textContent = 'Tip: Connect more peers to increase your network score and data value.';
+    } else if (d.dataValueScore >= 80) {
+      tipEl.style.display = 'block';
+      tipEl.textContent = 'Excellent! Your node is a high-value intelligence source. Keep it running to maintain freshness.';
+    } else {
+      tipEl.style.display = 'none';
+    }
+  }
+
+  function startAnalyticsPolling() {
+    if (analyticsInterval) clearInterval(analyticsInterval);
+    analyticsInterval = setInterval(() => {
+      const active = document.querySelector('.tab.active');
+      if (active && active.dataset.tab === 'analytics') loadAnalytics();
+    }, 30000);
+  }
+
+  // ═══════════════════════════════════════════
   //  TABS
   // ═══════════════════════════════════════════
 
@@ -2800,6 +3282,7 @@
     if (tabName === 'content') loadContent();
     if (tabName === 'peers') loadPeers();
     if (tabName === 'share') loadNetworkInfo();
+    if (tabName === 'analytics') { loadAnalytics(); startAnalyticsPolling(); }
     if (tabName === 'activity') loadActivity();
     if (tabName === 'settings') { loadConfig(); loadKeys(); }
   }

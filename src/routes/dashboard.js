@@ -866,6 +866,358 @@ async function dashboardRoutes(fastify, options) {
     }
   });
 
+  // ══════════════════════════════════════════
+  //  ANALYTICS API (Layer 3)
+  // ══════════════════════════════════════════
+
+  // GET /dashboard/api/analytics/overview — high-level node stats
+  fastify.get('/dashboard/api/analytics/overview', async (request, reply) => {
+    try {
+      const d = db.getDb();
+
+      const totalContent = d.prepare('SELECT COUNT(*) as cnt FROM content').get().cnt;
+      const totalArtifacts = d.prepare('SELECT COUNT(*) as cnt FROM artifacts').get().cnt;
+      const totalSearches = d.prepare('SELECT COUNT(*) as cnt FROM search_log').get().cnt;
+
+      // Unique URLs in content table
+      const uniqueUrls = d.prepare('SELECT COUNT(DISTINCT url) as cnt FROM content').get().cnt;
+
+      // Unique search terms
+      const uniqueSearchTerms = d.prepare('SELECT COUNT(DISTINCT query) as cnt FROM search_log').get().cnt;
+
+      // Peers connected
+      const peersConnected = db.getPeerCount();
+
+      // Content growth rate: items per day over last 7 days
+      const contentLast7 = d.prepare(`
+        SELECT COUNT(*) as cnt FROM content
+        WHERE fetched_at >= datetime('now', '-7 days')
+      `).get().cnt;
+      const contentGrowthRate = parseFloat((contentLast7 / 7).toFixed(1));
+
+      // Search growth rate: searches per day over last 7 days
+      const searchLast7 = d.prepare(`
+        SELECT COUNT(*) as cnt FROM search_log
+        WHERE timestamp >= datetime('now', '-7 days')
+      `).get().cnt;
+      const searchGrowthRate = parseFloat((searchLast7 / 7).toFixed(1));
+
+      // Data Value Score (0-100)
+      // Content volume: 0-20 (log scale, cap at 1000)
+      const volScore = Math.min(20, Math.round((Math.log10(Math.max(totalContent, 1)) / 3) * 20));
+      // Search diversity: 0-20 (unique terms, log scale)
+      const divScore = Math.min(20, Math.round((Math.log10(Math.max(uniqueSearchTerms, 1)) / 3) * 20));
+      // Demand data: 0-20 (total searches, log scale)
+      const demandScore = Math.min(20, Math.round((Math.log10(Math.max(totalSearches, 1)) / 3) * 20));
+      // Network connections: 0-15 (cap at 10 peers)
+      const netScore = Math.min(15, Math.round((peersConnected / 10) * 15));
+      // Content freshness: 0-15 (% < 24h old)
+      const freshCount = d.prepare(`SELECT COUNT(*) as cnt FROM content WHERE fetched_at >= datetime('now', '-1 day')`).get().cnt;
+      const freshPct = totalContent > 0 ? freshCount / totalContent : 0;
+      const freshScore = Math.round(freshPct * 15);
+      // Opportunity capture: 0-10 (% of top gaps filled)
+      const topGaps = d.prepare(`
+        SELECT query, COUNT(*) as cnt FROM search_log
+        WHERE results_count = 0
+        GROUP BY query ORDER BY cnt DESC LIMIT 5
+      `).all();
+      let gapsFilled = 0;
+      for (const gap of topGaps) {
+        const has = d.prepare(`SELECT COUNT(*) as cnt FROM content WHERE url LIKE ? OR content_text LIKE ?`).get(`%${gap.query}%`, `%${gap.query}%`);
+        if (has.cnt > 0) gapsFilled++;
+      }
+      const oppScore = topGaps.length > 0 ? Math.round((gapsFilled / topGaps.length) * 10) : 0;
+
+      const dataValueScore = volScore + divScore + demandScore + netScore + freshScore + oppScore;
+
+      return {
+        success: true,
+        data: {
+          totalContent,
+          totalArtifacts,
+          totalSearches,
+          uniqueUrls,
+          uniqueSearchTerms,
+          peersConnected,
+          contentGrowthRate,
+          searchGrowthRate,
+          dataValueScore: Math.min(100, dataValueScore),
+          scoreBreakdown: {
+            volume: volScore,
+            diversity: divScore,
+            demand: demandScore,
+            network: netScore,
+            freshness: freshScore,
+            opportunity: oppScore
+          }
+        },
+        error: null
+      };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // GET /dashboard/api/analytics/demand — what agents are looking for
+  fastify.get('/dashboard/api/analytics/demand', async (request, reply) => {
+    try {
+      const d = db.getDb();
+
+      // Top searches with result status
+      const topSearches = d.prepare(`
+        SELECT query, COUNT(*) as count,
+               SUM(CASE WHEN results_count > 0 THEN 1 ELSE 0 END) as with_results
+        FROM search_log
+        GROUP BY query ORDER BY count DESC LIMIT 20
+      `).all().map(r => ({
+        query: r.query,
+        count: r.count,
+        hasResults: r.with_results > 0
+      }));
+
+      // Unmet demand — searches with 0 results
+      const unmetDemand = d.prepare(`
+        SELECT query, COUNT(*) as searchCount, MAX(timestamp) as lastSearched
+        FROM search_log WHERE results_count = 0
+        GROUP BY query ORDER BY searchCount DESC LIMIT 10
+      `).all().map(r => ({
+        query: r.query,
+        searchCount: r.searchCount,
+        lastSearched: timeAgo(r.lastSearched)
+      }));
+
+      // Demand by category
+      const catRows = d.prepare(`
+        SELECT COALESCE(category_filter, 'other') as cat, COUNT(*) as cnt
+        FROM search_log GROUP BY cat ORDER BY cnt DESC
+      `).all();
+      const demandByCategory = {};
+      for (const r of catRows) demandByCategory[r.cat || 'other'] = r.cnt;
+
+      // Demand trend (last 7 days)
+      const demandTrend = d.prepare(`
+        SELECT DATE(timestamp) as date, COUNT(*) as searches
+        FROM search_log
+        WHERE timestamp >= datetime('now', '-7 days')
+        GROUP BY DATE(timestamp) ORDER BY date ASC
+      `).all();
+
+      return {
+        success: true,
+        data: { topSearches, unmetDemand, demandByCategory, demandTrend },
+        error: null
+      };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // GET /dashboard/api/analytics/supply — what the node has and what's consumed
+  fastify.get('/dashboard/api/analytics/supply', async (request, reply) => {
+    try {
+      const d = db.getDb();
+
+      // Top content by URL (most entries = most fetched/published)
+      const topContent = d.prepare(`
+        SELECT url, COUNT(*) as fetches, MAX(fetched_at) as lastFetched
+        FROM content GROUP BY url ORDER BY fetches DESC LIMIT 10
+      `).all().map(r => ({
+        url: r.url,
+        fetches: r.fetches,
+        lastFetched: timeAgo(r.lastFetched)
+      }));
+
+      // Content by visibility
+      let contentByVisibility = { public: 0, private: 0, whitelist: 0 };
+      try {
+        const visRows = d.prepare(`
+          SELECT COALESCE(visibility, 'public') as vis, COUNT(*) as cnt
+          FROM content GROUP BY vis
+        `).all();
+        for (const r of visRows) contentByVisibility[r.vis] = r.cnt;
+      } catch (e) { /* old db without visibility */ }
+
+      // Content by type (file://, http://, text://)
+      const typeRows = d.prepare(`
+        SELECT
+          CASE
+            WHEN url LIKE 'file://%' THEN 'file'
+            WHEN url LIKE 'text://%' THEN 'text'
+            ELSE 'web'
+          END as type,
+          COUNT(*) as cnt
+        FROM content GROUP BY type
+      `).all();
+      const contentByType = {};
+      for (const r of typeRows) contentByType[r.type] = r.cnt;
+
+      // Freshness breakdown
+      const freshCount = d.prepare(`SELECT COUNT(*) as cnt FROM content WHERE fetched_at >= datetime('now', '-1 day')`).get().cnt;
+      const recentCount = d.prepare(`SELECT COUNT(*) as cnt FROM content WHERE fetched_at >= datetime('now', '-7 days') AND fetched_at < datetime('now', '-1 day')`).get().cnt;
+      const totalContent = d.prepare(`SELECT COUNT(*) as cnt FROM content`).get().cnt;
+      const staleCount = totalContent - freshCount - recentCount;
+
+      // Supply growth (last 7 days)
+      const supplyGrowth = d.prepare(`
+        SELECT DATE(fetched_at) as date, COUNT(*) as items
+        FROM content
+        WHERE fetched_at >= datetime('now', '-7 days')
+        GROUP BY DATE(fetched_at) ORDER BY date ASC
+      `).all();
+
+      return {
+        success: true,
+        data: {
+          topContent,
+          contentByVisibility,
+          contentByType,
+          freshness: { fresh: freshCount, recent: recentCount, stale: Math.max(0, staleCount) },
+          supplyGrowth
+        },
+        error: null
+      };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // GET /dashboard/api/analytics/opportunities — gaps where demand > supply
+  fastify.get('/dashboard/api/analytics/opportunities', async (request, reply) => {
+    try {
+      const d = db.getDb();
+
+      // Top unmet searches with suggestions
+      const gaps = d.prepare(`
+        SELECT query, COUNT(*) as searchCount, MAX(timestamp) as lastSearched
+        FROM search_log WHERE results_count = 0
+        GROUP BY query ORDER BY searchCount DESC LIMIT 10
+      `).all();
+
+      const opportunities = gaps.map(g => {
+        // Check how many competitors serve this
+        const competitors = d.prepare(`
+          SELECT COUNT(DISTINCT provider_id) as cnt FROM content
+          WHERE content_text LIKE ? OR url LIKE ?
+        `).get(`%${g.query}%`, `%${g.query}%`);
+
+        const value = g.searchCount >= 10 ? 'high' : g.searchCount >= 5 ? 'medium' : 'low';
+        let suggestion = 'Crawl related docs and publish to capture this demand.';
+        if (competitors.cnt === 0) {
+          suggestion = 'No one serves this. First provider takes all the demand.';
+        } else {
+          suggestion = `${competitors.cnt} provider(s) have related content. Specialize to compete.`;
+        }
+
+        return {
+          query: g.query,
+          searchCount: g.searchCount,
+          competitorCount: competitors.cnt,
+          estimatedValue: value,
+          suggestion,
+          lastSearched: timeAgo(g.lastSearched)
+        };
+      });
+
+      // Rising demand: queries growing fast (compare last 3 days vs prior 4 days)
+      const risingDemand = [];
+      const decliningDemand = [];
+      const recentQueries = d.prepare(`
+        SELECT query, COUNT(*) as cnt FROM search_log
+        WHERE timestamp >= datetime('now', '-3 days')
+        GROUP BY query HAVING cnt >= 2
+      `).all();
+
+      for (const q of recentQueries) {
+        const prior = d.prepare(`
+          SELECT COUNT(*) as cnt FROM search_log
+          WHERE query = ? AND timestamp >= datetime('now', '-7 days') AND timestamp < datetime('now', '-3 days')
+        `).get(q.query);
+
+        if (prior.cnt === 0 && q.cnt >= 3) {
+          risingDemand.push({ query: q.query, growth: '+new', period: '3d' });
+        } else if (prior.cnt > 0) {
+          const growthPct = Math.round(((q.cnt - prior.cnt) / prior.cnt) * 100);
+          if (growthPct >= 50) {
+            risingDemand.push({ query: q.query, growth: `+${growthPct}%`, period: '7d' });
+          } else if (growthPct <= -30) {
+            decliningDemand.push({ query: q.query, growth: `${growthPct}%`, period: '7d' });
+          }
+        }
+      }
+
+      return {
+        success: true,
+        data: { opportunities, risingDemand, decliningDemand },
+        error: null
+      };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // GET /dashboard/api/analytics/network — network-level intelligence
+  fastify.get('/dashboard/api/analytics/network', async (request, reply) => {
+    try {
+      const d = db.getDb();
+      const peers = db.getAllPeers();
+
+      const peerActivity = peers.map(p => ({
+        peer: p.name || p.endpoint,
+        endpoint: p.endpoint,
+        lastActive: p.last_seen ? timeAgo(p.last_seen) : 'never',
+        failures: p.failures,
+        status: p.failures < 3 ? 'healthy' : p.failures < 5 ? 'degraded' : 'down'
+      }));
+
+      // Network growth this week
+      const contentThisWeek = d.prepare(`
+        SELECT COUNT(*) as cnt FROM content WHERE fetched_at >= datetime('now', '-7 days')
+      `).get().cnt;
+      const searchesThisWeek = d.prepare(`
+        SELECT COUNT(*) as cnt FROM search_log WHERE timestamp >= datetime('now', '-7 days')
+      `).get().cnt;
+      const peersThisWeek = d.prepare(`
+        SELECT COUNT(*) as cnt FROM peers WHERE added_at >= datetime('now', '-7 days')
+      `).get().cnt;
+
+      return {
+        success: true,
+        data: {
+          peerActivity,
+          networkGrowth: {
+            nodesThisWeek: peersThisWeek,
+            contentThisWeek,
+            searchesThisWeek
+          }
+        },
+        error: null
+      };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // Helper: relative time ago
+  function timeAgo(dateStr) {
+    if (!dateStr) return 'never';
+    const now = Date.now();
+    const then = new Date(dateStr + (dateStr.includes('Z') ? '' : 'Z')).getTime();
+    const diffMs = now - then;
+    if (diffMs < 0) return 'just now';
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  }
+
   // Hook into existing routes to log activity
   fastify.addHook('onResponse', (request, reply, done) => {
     const url = request.url;
