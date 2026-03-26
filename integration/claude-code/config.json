@@ -1,0 +1,8 @@
+{
+  "marketplaceUrl": "http://localhost:3001",
+  "apiKey": "",
+  "autoPublish": true,
+  "defaultVisibility": "private",
+  "defaultPrice": 0.0001,
+  "logFile": "integration/claude-code/cache.log"
+}

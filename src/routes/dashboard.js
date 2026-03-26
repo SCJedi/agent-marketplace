@@ -406,6 +406,48 @@ async function dashboardRoutes(fastify, options) {
     }
   });
 
+  // POST /dashboard/api/publish-file — publish local file content directly (for GUI upload)
+  fastify.post('/dashboard/api/publish-file', async (request, reply) => {
+    try {
+      const { path: displayPath, content, visibility } = request.body || {};
+      if (!displayPath) {
+        return reply.code(400).send({ success: false, data: null, error: 'path is required' });
+      }
+      if (!content) {
+        return reply.code(400).send({ success: false, data: null, error: 'content is required' });
+      }
+
+      // Normalize the path to a file:/// URL
+      const normalizedPath = displayPath.replace(/\\/g, '/');
+      const fileUrl = normalizedPath.startsWith('file:///') ? normalizedPath : `file:///${normalizedPath}`;
+      const sourceHash = crypto.createHash('sha256').update(content).digest('hex');
+
+      // Extract basic metadata from the path
+      const basename = normalizedPath.split('/').pop() || 'untitled';
+      const ext = basename.includes('.') ? basename.split('.').pop() : 'text';
+
+      const record = db.contentPublishWithHash({
+        url: fileUrl,
+        source_hash: sourceHash,
+        content_text: content.slice(0, 50000),
+        content_metadata: JSON.stringify({
+          title: basename,
+          type: ext,
+          size: content.length,
+          publishedAt: new Date().toISOString(),
+        }),
+        price: 0.0001,
+        visibility: visibility || 'private',
+      });
+
+      logActivity('publish-file', `Published file: ${basename}`);
+      return reply.code(201).send({ success: true, data: record, error: null });
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
   // Hook into existing routes to log activity
   fastify.addHook('onResponse', (request, reply, done) => {
     const url = request.url;

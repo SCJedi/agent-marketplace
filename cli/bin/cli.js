@@ -66,6 +66,14 @@ function showHelp() {
       --price <price>        Price (required)
       --files <f1,f2>        Comma-separated file list (required)
 
+    publish-file <path>    Publish a local file
+      --visibility <vis>     Access: public | private (default: private)
+
+    publish-folder <path>  Publish all files in a folder
+      --depth <n>            Max directory depth
+      --visibility <vis>     Access: public | private (default: private)
+      --watch                Watch for changes and auto-publish
+
     trending               Show trending content and artifacts
       --period <period>      Time period: 7d | 30d
 
@@ -124,6 +132,16 @@ async function main() {
       case 'publish-artifact': {
         const publishArtifact = require('../src/commands/publish-artifact');
         await publishArtifact.run(client, flags);
+        break;
+      }
+      case 'publish-file': {
+        const publishFile = require('../src/commands/publish-file');
+        await publishFile.run(client, commandArg, flags);
+        break;
+      }
+      case 'publish-folder': {
+        const publishFolder = require('../src/commands/publish-folder');
+        await publishFolder.run(client, commandArg, flags);
         break;
       }
       case 'trending': {

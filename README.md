@@ -264,6 +264,52 @@ const results = await client.search('python auth');
 const content = await client.smartFetch('https://example.com/article');
 ```
 
+## Integrations
+
+### Claude Code Auto-Caching (one-click setup)
+
+Automatically cache every web page Claude Code fetches. Zero effort, instant value.
+
+```bash
+# Run the setup wizard
+node integration/claude-code/setup.js
+```
+
+The setup wizard will:
+1. Connect to your marketplace node
+2. Set up an API key
+3. Configure Claude Code hooks (PostToolUse + PreToolUse for WebFetch)
+
+Once configured, every `WebFetch` in any Claude Code session automatically publishes the clean content to your node. Future fetches of the same URL are already cached.
+
+```bash
+# Check integration status
+node integration/claude-code/status.js
+```
+
+### Local File Publishing
+
+Publish local files and folders to your marketplace node for cross-session search.
+
+```bash
+# Single file
+node integration/local-files/publish.js README.md
+
+# Entire folder (recursive, skips node_modules/.git/binaries)
+node integration/local-files/publish.js ./src/ --depth 3
+
+# Watch a folder for changes and auto-publish
+node integration/local-files/watch.js ./src/ --visibility private
+```
+
+CLI shortcuts:
+```bash
+node cli/bin/cli.js publish-file README.md
+node cli/bin/cli.js publish-folder ./src/ --depth 3 --visibility private
+```
+
+---
+
 ## Project Structure
 
 ```
@@ -278,10 +324,25 @@ agent-marketplace/
     network-client.js  # Agent-side multi-node client
     seeds.js           # Hardcoded seed nodes
     routes/            # API route handlers
+  integration/
+    claude-code/
+      auto-cache.js    # PostToolUse hook — auto-publish after WebFetch
+      pre-fetch.js     # PreToolUse hook — check cache before WebFetch
+      setup.js         # One-click setup wizard
+      status.js        # Check integration status
+      config.json      # Hook configuration
+    local-files/
+      publish.js       # Publish files/folders to marketplace
+      watch.js         # Watch folder and auto-publish on change
+  cli/
+    bin/cli.js         # CLI entry point
+    src/commands/      # CLI commands (search, publish, publish-file, etc.)
   bootstrap/
     start.js           # Start a 3-node P2P demo network
   tests/
-    peer-discovery.test.js  # P2P mesh formation tests (18 tests)
+    integration.test.js       # Core API tests
+    integration-hooks.test.js # Hook and file publishing tests (22 tests)
+    peer-discovery.test.js    # P2P mesh formation tests (18 tests)
 ```
 
 ---
