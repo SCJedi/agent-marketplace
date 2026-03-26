@@ -3,10 +3,134 @@
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const os = require('os');
+const { execSync } = require('child_process');
 const db = require('../db');
 
 // Simple config file for first-run state
 const CONFIG_PATH = process.env.DASHBOARD_CONFIG || path.join(__dirname, '..', '..', 'data', 'dashboard-config.json');
+const DUCKDNS_CONFIG_PATH = path.join(path.dirname(CONFIG_PATH), 'duckdns-config.json');
+
+// ── Network info cache ──
+let cachedPublicIp = null;
+let publicIpFetchedAt = 0;
+const PUBLIC_IP_CACHE_MS = 5 * 60 * 1000; // 5 minutes
+
+let cachedPortForwarding = null;
+let portForwardingCheckedAt = 0;
+const PORT_FWD_CACHE_MS = 60 * 1000; // 1 minute
+
+// DuckDNS updater interval
+let duckDnsInterval = null;
+
+function getLocalIp() {
+  const interfaces = os.networkInterfaces();
+  const candidates = [];
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        candidates.push({ address: iface.address, name });
+      }
+    }
+  }
+  if (candidates.length === 0) return '127.0.0.1';
+  // Prefer typical LAN addresses (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+  const lan = candidates.find(c =>
+    c.address.startsWith('192.168.') ||
+    c.address.startsWith('10.') ||
+    /^172\.(1[6-9]|2[0-9]|3[01])\./.test(c.address)
+  );
+  return lan ? lan.address : candidates[0].address;
+}
+
+async function getPublicIp() {
+  const now = Date.now();
+  if (cachedPublicIp && (now - publicIpFetchedAt) < PUBLIC_IP_CACHE_MS) {
+    return cachedPublicIp;
+  }
+  try {
+    const resp = await fetch('https://api.ipify.org', { signal: AbortSignal.timeout(5000) });
+    if (resp.ok) {
+      cachedPublicIp = (await resp.text()).trim();
+      publicIpFetchedAt = now;
+    }
+  } catch (e) {
+    // keep stale cache if available
+  }
+  return cachedPublicIp || null;
+}
+
+async function checkPortForwarding(publicIp, port) {
+  const now = Date.now();
+  if (cachedPortForwarding !== null && (now - portForwardingCheckedAt) < PORT_FWD_CACHE_MS) {
+    return cachedPortForwarding;
+  }
+  if (!publicIp) {
+    cachedPortForwarding = false;
+    portForwardingCheckedAt = now;
+    return false;
+  }
+  try {
+    const resp = await fetch(`http://${publicIp}:${port}/health`, { signal: AbortSignal.timeout(5000) });
+    cachedPortForwarding = resp.ok;
+  } catch (e) {
+    cachedPortForwarding = false;
+  }
+  portForwardingCheckedAt = now;
+  return cachedPortForwarding;
+}
+
+function getGatewayIp() {
+  const localIp = getLocalIp();
+  // Common gateway: replace last octet with 1
+  const parts = localIp.split('.');
+  if (parts.length === 4) {
+    return parts[0] + '.' + parts[1] + '.' + parts[2] + '.1';
+  }
+  return '192.168.1.1';
+}
+
+function loadDuckDnsConfig() {
+  try {
+    if (fs.existsSync(DUCKDNS_CONFIG_PATH)) {
+      return JSON.parse(fs.readFileSync(DUCKDNS_CONFIG_PATH, 'utf8'));
+    }
+  } catch (e) { /* ignore */ }
+  return null;
+}
+
+function saveDuckDnsConfig(config) {
+  const dir = path.dirname(DUCKDNS_CONFIG_PATH);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(DUCKDNS_CONFIG_PATH, JSON.stringify(config, null, 2));
+}
+
+async function updateDuckDns(domain, token) {
+  try {
+    const resp = await fetch(
+      `https://www.duckdns.org/update?domains=${encodeURIComponent(domain)}&token=${encodeURIComponent(token)}&ip=`,
+      { signal: AbortSignal.timeout(10000) }
+    );
+    const text = await resp.text();
+    return text.trim() === 'OK';
+  } catch (e) {
+    return false;
+  }
+}
+
+function startDuckDnsUpdater() {
+  if (duckDnsInterval) clearInterval(duckDnsInterval);
+  const config = loadDuckDnsConfig();
+  if (!config || !config.domain || !config.token || !config.active) return;
+  // Update immediately, then every 5 min
+  updateDuckDns(config.domain, config.token);
+  duckDnsInterval = setInterval(() => {
+    updateDuckDns(config.domain, config.token);
+  }, 5 * 60 * 1000);
+}
+
+// Start DuckDNS updater on module load if configured
+startDuckDnsUpdater();
 
 function loadConfig() {
   try {
@@ -442,6 +566,138 @@ async function dashboardRoutes(fastify, options) {
 
       logActivity('publish-file', `Published file: ${basename}`);
       return reply.code(201).send({ success: true, data: record, error: null });
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // ── NETWORK INFO ────────────────────────────
+
+  // GET /dashboard/api/network — full network info for sharing
+  fastify.get('/dashboard/api/network', async (request, reply) => {
+    try {
+      const port = parseInt(process.env.PORT, 10) || 3001;
+      const localIp = getLocalIp();
+      const publicIp = await getPublicIp();
+      const portForwardingWorking = await checkPortForwarding(publicIp, port);
+      const gatewayIp = getGatewayIp();
+      const duckDns = loadDuckDnsConfig();
+
+      const result = {
+        localIp,
+        publicIp,
+        port,
+        gatewayIp,
+        localAddress: `http://${localIp}:${port}`,
+        publicAddress: publicIp ? `http://${publicIp}:${port}` : null,
+        portForwardingWorking,
+        duckDns: duckDns && duckDns.active ? {
+          domain: duckDns.domain,
+          fullAddress: `http://${duckDns.domain}.duckdns.org:${port}`
+        } : null,
+        shareInstructions: {
+          sameNetwork: `http://${localIp}:${port}`,
+          remote: publicIp ? `http://${publicIp}:${port}` : null
+        }
+      };
+
+      return { success: true, data: result, error: null };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // POST /dashboard/api/network/recheck — force re-check port forwarding
+  fastify.post('/dashboard/api/network/recheck', async (request, reply) => {
+    try {
+      const port = parseInt(process.env.PORT, 10) || 3001;
+      // Clear cache to force fresh check
+      cachedPortForwarding = null;
+      portForwardingCheckedAt = 0;
+      const publicIp = await getPublicIp();
+      const working = await checkPortForwarding(publicIp, port);
+      return { success: true, data: { portForwardingWorking: working, publicIp }, error: null };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // GET /dashboard/api/network/firewall-check — check Windows Firewall
+  fastify.get('/dashboard/api/network/firewall-check', async (request, reply) => {
+    try {
+      const port = parseInt(process.env.PORT, 10) || 3001;
+      let firewallOpen = null;
+      let command = null;
+
+      if (process.platform === 'win32') {
+        try {
+          const output = execSync(
+            `netsh advfirewall firewall show rule name=all dir=in | findstr /i "LocalPort.*${port}"`,
+            { timeout: 5000, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
+          );
+          firewallOpen = output.trim().length > 0;
+        } catch (e) {
+          // findstr returns exit code 1 when no match — means port not open
+          firewallOpen = false;
+        }
+        command = `netsh advfirewall firewall add rule name="AgentMarketplace" dir=in action=allow protocol=TCP localport=${port}`;
+      } else {
+        // Linux/Mac — skip firewall check
+        firewallOpen = null;
+      }
+
+      return { success: true, data: { firewallOpen, port, command, platform: process.platform }, error: null };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // GET /dashboard/api/network/duckdns-check — check DuckDNS config
+  fastify.get('/dashboard/api/network/duckdns-check', async (request, reply) => {
+    try {
+      const config = loadDuckDnsConfig();
+      return { success: true, data: config, error: null };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // POST /dashboard/api/network/duckdns — save DuckDNS config and start updater
+  fastify.post('/dashboard/api/network/duckdns', async (request, reply) => {
+    try {
+      const { domain, token } = request.body || {};
+      if (!domain || !token) {
+        return reply.code(400).send({ success: false, data: null, error: 'Domain and token are required' });
+      }
+
+      // Validate domain (alphanumeric and hyphens only)
+      const cleanDomain = domain.trim().toLowerCase().replace(/\.duckdns\.org$/i, '');
+      if (!/^[a-z0-9-]+$/.test(cleanDomain)) {
+        return reply.code(400).send({ success: false, data: null, error: 'Domain must only contain letters, numbers, and hyphens' });
+      }
+
+      // Test the credentials
+      const ok = await updateDuckDns(cleanDomain, token.trim());
+      if (!ok) {
+        return reply.code(400).send({ success: false, data: null, error: 'DuckDNS update failed. Check your domain and token.' });
+      }
+
+      const config = {
+        domain: cleanDomain,
+        token: token.trim(),
+        active: true,
+        configuredAt: new Date().toISOString()
+      };
+      saveDuckDnsConfig(config);
+      startDuckDnsUpdater();
+
+      logActivity('duckdns', `DuckDNS configured: ${cleanDomain}.duckdns.org`);
+      return { success: true, data: { domain: cleanDomain, fullDomain: `${cleanDomain}.duckdns.org` }, error: null };
     } catch (err) {
       request.log.error(err);
       return reply.code(500).send({ success: false, data: null, error: err.message });

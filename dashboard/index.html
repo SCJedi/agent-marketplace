@@ -459,6 +459,119 @@
       padding: 24px;
       color: var(--text-muted);
     }
+
+    /* ── SHARE TAB ──────────────────────────────── */
+
+    .share-section {
+      margin-bottom: 24px;
+    }
+
+    .share-section h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .share-address-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 8px;
+    }
+
+    .share-address-box code {
+      flex: 1;
+      font-family: 'SF Mono', 'Consolas', monospace;
+      font-size: 14px;
+      color: var(--accent-hover);
+      word-break: break-all;
+    }
+
+    .share-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    .share-status.ok {
+      background: rgba(34,197,94,0.12);
+      border: 1px solid rgba(34,197,94,0.3);
+      color: #86efac;
+    }
+
+    .share-status.warn {
+      background: rgba(234,179,8,0.12);
+      border: 1px solid rgba(234,179,8,0.3);
+      color: #fde047;
+    }
+
+    .share-status.error {
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.3);
+      color: #fca5a5;
+    }
+
+    .share-steps {
+      padding: 16px 20px;
+      background: var(--bg);
+      border-radius: var(--radius);
+      font-size: 14px;
+      line-height: 1.8;
+      margin-bottom: 12px;
+    }
+
+    .share-steps ol {
+      padding-left: 20px;
+    }
+
+    .share-steps a {
+      color: var(--accent-hover);
+      text-decoration: none;
+    }
+
+    .share-steps a:hover {
+      text-decoration: underline;
+    }
+
+    .share-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 24px 0;
+    }
+
+    .invite-box {
+      padding: 16px 20px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-family: 'SF Mono', 'Consolas', monospace;
+      white-space: pre-wrap;
+      word-break: break-all;
+      line-height: 1.6;
+      color: var(--text-muted);
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .copy-toast {
+      display: inline-block;
+      color: var(--green);
+      font-size: 13px;
+      margin-left: 8px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .copy-toast.show { opacity: 1; }
   </style>
 </head>
 <body>
@@ -528,6 +641,7 @@
       <div class="tab" data-tab="content" onclick="showTab('content')">Content</div>
       <div class="tab" data-tab="peers" onclick="showTab('peers')">Peers</div>
       <div class="tab" data-tab="search" onclick="showTab('search')">Search</div>
+      <div class="tab" data-tab="share" onclick="showTab('share')">Share</div>
       <div class="tab" data-tab="activity" onclick="showTab('activity')">Activity</div>
       <div class="tab" data-tab="settings" onclick="showTab('settings')">Settings</div>
     </div>
@@ -611,6 +725,9 @@
             <button class="btn small" onclick="copyAddress()">Copy</button>
           </div>
           <div id="copy-success" class="success-msg hidden" style="margin-top:8px">Address copied to clipboard.</div>
+          <p style="color:var(--text-muted); font-size:13px; margin-top:10px">
+            Need to share with someone remote? Check the <a href="#" onclick="showTab('share'); return false" style="color:var(--accent-hover)">Share tab</a> for detailed instructions.
+          </p>
         </div>
       </div>
     </div>
@@ -668,6 +785,146 @@
         </div>
         <div class="panel-body search-results" id="search-results-body"></div>
       </div>
+    </div>
+
+    <!-- ─── SHARE TAB ────────────────────── -->
+    <div class="tab-content" id="tab-share">
+      <h2 style="font-size:18px; margin-bottom:16px">Share Your Node</h2>
+
+      <div id="share-loading" class="loading-overlay"><div class="spinner"></div> Detecting network...</div>
+
+      <div id="share-content" style="display:none">
+
+        <!-- Same Network -->
+        <div class="panel">
+          <div class="panel-header">For someone on your home network (same WiFi)</div>
+          <div class="panel-body padded">
+            <div class="share-address-box">
+              <code id="share-local-addr">--</code>
+              <button class="btn small" onclick="copyShareAddr('share-local-addr')">Copy</button>
+              <span class="copy-toast" id="toast-share-local-addr">Copied!</span>
+            </div>
+            <p style="color:var(--text-muted); font-size:13px">
+              Send them this address. They paste it as a seed peer in their setup wizard.
+            </p>
+          </div>
+        </div>
+
+        <!-- Remote Access -->
+        <div class="panel">
+          <div class="panel-header">For someone remote (different location)</div>
+          <div class="panel-body padded">
+
+            <div id="share-remote-info">
+              <p style="color:var(--text-muted); font-size:14px; margin-bottom:8px">
+                Your public IP: <strong id="share-public-ip">--</strong>
+                &nbsp;&middot;&nbsp; Port: <strong id="share-port">--</strong>
+              </p>
+            </div>
+
+            <!-- Port forwarding status -->
+            <div id="share-pf-ok" class="share-status ok" style="display:none">
+              Reachable from internet!
+            </div>
+
+            <div id="share-pf-fail" style="display:none">
+              <div class="share-status warn">
+                Not reachable from internet &mdash; port forwarding required
+              </div>
+
+              <div class="share-steps">
+                <p style="margin-bottom:8px"><strong>To fix this:</strong></p>
+                <ol>
+                  <li>Open your router settings (try: <a id="share-router-link" href="http://192.168.1.1" target="_blank">http://<span id="share-gateway">192.168.1.1</span></a>)</li>
+                  <li>Find "Port Forwarding" (sometimes under NAT, Virtual Server, or Firewall)</li>
+                  <li>Add a rule:<br>
+                    &nbsp;&nbsp;External port: <strong id="share-pf-ext-port">3001</strong><br>
+                    &nbsp;&nbsp;Internal IP: <strong id="share-pf-int-ip">--</strong><br>
+                    &nbsp;&nbsp;Internal port: <strong id="share-pf-int-port">3001</strong><br>
+                    &nbsp;&nbsp;Protocol: <strong>TCP</strong>
+                  </li>
+                  <li>Save and click "Re-check" below</li>
+                </ol>
+              </div>
+
+              <button class="btn secondary" onclick="recheckPortForwarding()" id="share-recheck-btn">Re-check Connection</button>
+              <span class="copy-toast" id="toast-recheck">Checking...</span>
+            </div>
+
+            <!-- Firewall warning (Windows) -->
+            <div id="share-firewall-warn" style="display:none; margin-top:12px">
+              <div class="share-status warn">
+                Windows Firewall may be blocking port <span id="share-fw-port">3001</span>.
+              </div>
+              <div class="share-steps">
+                <p>Run this in an <strong>admin PowerShell</strong>:</p>
+                <div class="share-address-box" style="margin-top:8px">
+                  <code id="share-fw-cmd" style="font-size:12px">--</code>
+                  <button class="btn small" onclick="copyShareAddr('share-fw-cmd')">Copy</button>
+                  <span class="copy-toast" id="toast-share-fw-cmd">Copied!</span>
+                </div>
+              </div>
+            </div>
+
+            <hr class="share-divider">
+
+            <!-- Public address to share (when working) -->
+            <div id="share-remote-addr-section">
+              <h3>Share this address with remote users:</h3>
+              <div class="share-address-box">
+                <code id="share-remote-addr">--</code>
+                <button class="btn small" onclick="copyShareAddr('share-remote-addr')">Copy</button>
+                <span class="copy-toast" id="toast-share-remote-addr">Copied!</span>
+              </div>
+            </div>
+
+            <!-- DuckDNS permanent address -->
+            <div id="share-duckdns-active" style="display:none; margin-top:12px">
+              <h3>Your permanent address:</h3>
+              <div class="share-address-box">
+                <code id="share-duckdns-addr">--</code>
+                <button class="btn small" onclick="copyShareAddr('share-duckdns-addr')">Copy</button>
+                <span class="copy-toast" id="toast-share-duckdns-addr">Copied!</span>
+              </div>
+            </div>
+
+            <hr class="share-divider">
+
+            <!-- DuckDNS setup -->
+            <div class="share-section">
+              <p style="color:var(--text-muted); font-size:13px; margin-bottom:8px">
+                Your IP might change. For a permanent address, set up free dynamic DNS:
+              </p>
+              <button class="btn secondary" onclick="openDuckDnsModal()" id="share-duckdns-btn">Setup DuckDNS (free)</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Invite Someone -->
+        <div class="panel">
+          <div class="panel-header">Invite Someone</div>
+          <div class="panel-body padded">
+
+            <div class="form-group">
+              <label>Their name (optional)</label>
+              <input type="text" id="invite-name" placeholder="e.g. Brother, Partner">
+            </div>
+
+            <button class="btn secondary" onclick="generateInvite()" style="margin-bottom:16px">Generate Invite Instructions</button>
+
+            <div id="invite-result" style="display:none">
+              <h3 style="margin-bottom:8px">Send these instructions:</h3>
+              <div style="position:relative">
+                <div class="invite-box" id="invite-text"></div>
+                <button class="btn small" onclick="copyShareAddr('invite-text')" style="position:absolute; top:8px; right:8px">Copy</button>
+                <span class="copy-toast" id="toast-invite-text" style="position:absolute; top:12px; right:60px">Copied!</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div><!-- /share-content -->
     </div>
 
     <!-- ─── ACTIVITY TAB ──────────────────── -->
@@ -784,6 +1041,45 @@
     <div class="btn-row">
       <button class="btn secondary" onclick="closePeerModal()">Cancel</button>
       <button class="btn" id="peer-submit" onclick="addPeer()">Connect</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ DUCKDNS MODAL ═══════════ -->
+<div id="duckdns-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h2>Free Dynamic DNS with DuckDNS</h2>
+    <p style="color:var(--text-muted); font-size:14px; margin-bottom:16px">
+      This gives you a permanent address like <strong>your-name.duckdns.org</strong>
+      that always points to your current IP, even if it changes.
+    </p>
+    <div class="share-steps" style="margin-bottom:16px">
+      <ol>
+        <li>Go to <a href="https://www.duckdns.org" target="_blank">https://www.duckdns.org</a></li>
+        <li>Sign in (GitHub, Google, or Reddit)</li>
+        <li>Create a domain (e.g., "eric-node")</li>
+        <li>Copy your token from the DuckDNS page</li>
+      </ol>
+    </div>
+    <div class="form-group">
+      <label>Domain</label>
+      <div style="display:flex; align-items:center; gap:0">
+        <input type="text" id="duck-domain" placeholder="eric-node" style="border-radius: var(--radius) 0 0 var(--radius); border-right:none">
+        <span style="padding:10px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:0 var(--radius) var(--radius) 0; color:var(--text-muted); font-size:14px; white-space:nowrap">.duckdns.org</span>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Token</label>
+      <input type="text" id="duck-token" placeholder="Paste your DuckDNS token here">
+    </div>
+    <div id="duck-error" class="error-msg hidden"></div>
+    <div id="duck-success" class="success-msg hidden"></div>
+    <p style="color:var(--text-muted); font-size:13px; margin-top:8px">
+      This will auto-update your IP every 5 minutes.
+    </p>
+    <div class="btn-row">
+      <button class="btn secondary" onclick="closeDuckDnsModal()">Cancel</button>
+      <button class="btn" id="duck-submit" onclick="saveDuckDns()">Save &amp; Activate</button>
     </div>
   </div>
 </div>
@@ -1313,6 +1609,216 @@
   }
 
   // ═══════════════════════════════════════════
+  //  SHARE / NETWORK
+  // ═══════════════════════════════════════════
+
+  let networkData = null;
+
+  async function loadNetworkInfo() {
+    const loading = document.getElementById('share-loading');
+    const content = document.getElementById('share-content');
+
+    try {
+      const resp = await fetch(API + '/network');
+      const data = await resp.json();
+      if (!data.success) return;
+
+      networkData = data.data;
+      const d = networkData;
+
+      // Local address
+      document.getElementById('share-local-addr').textContent = d.localAddress;
+
+      // Public IP and port
+      document.getElementById('share-public-ip').textContent = d.publicIp || 'Unknown';
+      document.getElementById('share-port').textContent = d.port;
+
+      // Port forwarding status
+      if (d.portForwardingWorking) {
+        document.getElementById('share-pf-ok').style.display = 'flex';
+        document.getElementById('share-pf-fail').style.display = 'none';
+      } else {
+        document.getElementById('share-pf-ok').style.display = 'none';
+        document.getElementById('share-pf-fail').style.display = 'block';
+        // Fill in port forwarding instructions
+        document.getElementById('share-gateway').textContent = d.gatewayIp;
+        document.getElementById('share-router-link').href = 'http://' + d.gatewayIp;
+        document.getElementById('share-pf-ext-port').textContent = d.port;
+        document.getElementById('share-pf-int-ip').textContent = d.localIp;
+        document.getElementById('share-pf-int-port').textContent = d.port;
+      }
+
+      // Remote address
+      document.getElementById('share-remote-addr').textContent = d.publicAddress || 'Not available';
+
+      // DuckDNS
+      if (d.duckDns) {
+        document.getElementById('share-duckdns-active').style.display = 'block';
+        document.getElementById('share-duckdns-addr').textContent = d.duckDns.fullAddress;
+        document.getElementById('share-duckdns-btn').textContent = 'Update DuckDNS Settings';
+      }
+
+      // Check Windows firewall
+      loadFirewallCheck();
+
+      loading.style.display = 'none';
+      content.style.display = 'block';
+    } catch (e) {
+      loading.innerHTML = '<span style="color:var(--red)">Failed to load network info. Is the server running?</span>';
+    }
+  }
+
+  async function loadFirewallCheck() {
+    try {
+      const resp = await fetch(API + '/network/firewall-check');
+      const data = await resp.json();
+      if (!data.success) return;
+
+      const fw = data.data;
+      if (fw.platform === 'win32' && fw.firewallOpen === false) {
+        document.getElementById('share-firewall-warn').style.display = 'block';
+        document.getElementById('share-fw-port').textContent = fw.port;
+        document.getElementById('share-fw-cmd').textContent = fw.command;
+      } else {
+        document.getElementById('share-firewall-warn').style.display = 'none';
+      }
+    } catch (e) { /* silent */ }
+  }
+
+  async function recheckPortForwarding() {
+    const btn = document.getElementById('share-recheck-btn');
+    const toast = document.getElementById('toast-recheck');
+    btn.disabled = true;
+    btn.textContent = 'Checking...';
+    toast.classList.add('show');
+
+    try {
+      const resp = await fetch(API + '/network/recheck', { method: 'POST' });
+      const data = await resp.json();
+
+      if (data.success && data.data.portForwardingWorking) {
+        document.getElementById('share-pf-ok').style.display = 'flex';
+        document.getElementById('share-pf-fail').style.display = 'none';
+      } else {
+        toast.textContent = 'Still not reachable';
+        toast.classList.add('show');
+      }
+    } catch (e) {
+      toast.textContent = 'Check failed';
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Re-check Connection';
+    setTimeout(() => { toast.classList.remove('show'); toast.textContent = 'Checking...'; }, 3000);
+  }
+
+  function copyShareAddr(elementId) {
+    const el = document.getElementById(elementId);
+    const text = el.textContent || el.innerText;
+    copyText(text);
+    const toast = document.getElementById('toast-' + elementId);
+    if (toast) {
+      toast.textContent = 'Copied!';
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+  }
+
+  function generateInvite() {
+    const name = document.getElementById('invite-name').value.trim() || 'friend';
+    const d = networkData;
+    if (!d) return;
+
+    // Determine the best address to share
+    let connectAddr = d.localAddress;
+    if (d.duckDns) {
+      connectAddr = d.duckDns.fullAddress;
+    } else if (d.portForwardingWorking && d.publicAddress) {
+      connectAddr = d.publicAddress;
+    }
+
+    const instructions = [
+      `Hey ${name}! Here's how to connect to my Agent Marketplace node:`,
+      ``,
+      `1. Install Node.js from https://nodejs.org`,
+      `2. Open a terminal and run:`,
+      `   git clone https://github.com/SCJedi/agent-marketplace.git`,
+      `3. cd agent-marketplace && npm install`,
+      `4. node src/server.js`,
+      `5. In the setup wizard, enter this peer address:`,
+      `   ${connectAddr}`,
+      ``,
+      `That's it! Your node will connect to mine automatically.`
+    ].join('\n');
+
+    document.getElementById('invite-text').textContent = instructions;
+    document.getElementById('invite-result').style.display = 'block';
+  }
+
+  // ── DuckDNS Modal ──
+
+  function openDuckDnsModal() {
+    document.getElementById('duckdns-modal').classList.remove('hidden');
+    document.getElementById('duck-error').classList.add('hidden');
+    document.getElementById('duck-success').classList.add('hidden');
+    document.getElementById('duck-submit').disabled = false;
+    document.getElementById('duck-domain').focus();
+  }
+
+  function closeDuckDnsModal() {
+    document.getElementById('duckdns-modal').classList.add('hidden');
+  }
+
+  async function saveDuckDns() {
+    const domain = document.getElementById('duck-domain').value.trim();
+    const token = document.getElementById('duck-token').value.trim();
+
+    if (!domain) {
+      showError('duck-error', 'Please enter a domain name.');
+      return;
+    }
+    if (!token) {
+      showError('duck-error', 'Please paste your DuckDNS token.');
+      return;
+    }
+
+    const btn = document.getElementById('duck-submit');
+    btn.disabled = true;
+    btn.textContent = 'Testing...';
+
+    try {
+      const resp = await fetch(API + '/network/duckdns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain, token })
+      });
+      const data = await resp.json();
+
+      if (!data.success) {
+        showError('duck-error', data.error || 'DuckDNS setup failed.');
+        btn.disabled = false;
+        btn.textContent = 'Save & Activate';
+        return;
+      }
+
+      document.getElementById('duck-success').textContent = 'DuckDNS activated! Your address: ' + data.data.fullDomain;
+      document.getElementById('duck-success').classList.remove('hidden');
+      document.getElementById('duck-error').classList.add('hidden');
+
+      // Refresh network info to show the new DuckDNS address
+      setTimeout(() => {
+        closeDuckDnsModal();
+        loadNetworkInfo();
+      }, 2000);
+    } catch (e) {
+      showError('duck-error', 'Network error. Is the server running?');
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Save & Activate';
+  }
+
+  // ═══════════════════════════════════════════
   //  TABS
   // ═══════════════════════════════════════════
 
@@ -1328,6 +1834,7 @@
     // Lazy-load tab data
     if (tabName === 'content') loadContent();
     if (tabName === 'peers') loadPeers();
+    if (tabName === 'share') loadNetworkInfo();
     if (tabName === 'activity') loadActivity();
     if (tabName === 'settings') { loadConfig(); loadKeys(); }
   }
