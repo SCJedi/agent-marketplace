@@ -221,13 +221,13 @@ async function dashboardRoutes(fastify, options) {
       let items;
       try {
         items = d.prepare(`
-          SELECT id, url, visibility, price, provider_id, fetched_at, content_hash
+          SELECT id, url, visibility, price, provider_id, fetched_at, content_hash, content_metadata
           FROM content ORDER BY fetched_at DESC LIMIT ? OFFSET ?
         `).all(limit, offset);
       } catch (e) {
         // Fallback for databases without visibility column
         items = d.prepare(`
-          SELECT id, url, 'public' as visibility, price, provider_id, fetched_at, content_hash
+          SELECT id, url, 'public' as visibility, price, provider_id, fetched_at, content_hash, content_metadata
           FROM content ORDER BY fetched_at DESC LIMIT ? OFFSET ?
         `).all(limit, offset);
       }
@@ -566,6 +566,118 @@ async function dashboardRoutes(fastify, options) {
 
       logActivity('publish-file', `Published file: ${basename}`);
       return reply.code(201).send({ success: true, data: record, error: null });
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // POST /dashboard/api/publish-text — publish pasted text content
+  fastify.post('/dashboard/api/publish-text', async (request, reply) => {
+    try {
+      const { title, text, visibility } = request.body || {};
+      if (!title || !title.trim()) {
+        return reply.code(400).send({ success: false, data: null, error: 'Title is required' });
+      }
+      if (!text || !text.trim()) {
+        return reply.code(400).send({ success: false, data: null, error: 'Text content is required' });
+      }
+
+      const cleanTitle = title.trim();
+      const fileUrl = `text://${cleanTitle}`;
+      const sourceHash = crypto.createHash('sha256').update(text).digest('hex');
+
+      const record = db.contentPublishWithHash({
+        url: fileUrl,
+        source_hash: sourceHash,
+        content_text: text.slice(0, 50000),
+        content_metadata: JSON.stringify({
+          title: cleanTitle,
+          type: 'text',
+          size: text.length,
+          publishedAt: new Date().toISOString(),
+        }),
+        price: 0.0001,
+        visibility: visibility || 'private',
+      });
+
+      logActivity('publish-text', `Published text: ${cleanTitle}`);
+      return reply.code(201).send({ success: true, data: record, error: null });
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // POST /dashboard/api/publish-batch — publish multiple files at once
+  fastify.post('/dashboard/api/publish-batch', async (request, reply) => {
+    try {
+      const { files, visibility } = request.body || {};
+      if (!files || !Array.isArray(files) || files.length === 0) {
+        return reply.code(400).send({ success: false, data: null, error: 'files array is required' });
+      }
+
+      let published = 0;
+      let skipped = 0;
+      const errors = [];
+
+      for (const file of files) {
+        try {
+          if (!file.path || !file.content) {
+            skipped++;
+            continue;
+          }
+
+          const normalizedPath = file.path.replace(/\\/g, '/');
+          const fileUrl = normalizedPath.startsWith('file:///') ? normalizedPath : `file:///${normalizedPath}`;
+          const sourceHash = crypto.createHash('sha256').update(file.content).digest('hex');
+          const basename = normalizedPath.split('/').pop() || 'untitled';
+          const ext = basename.includes('.') ? basename.split('.').pop() : 'text';
+
+          db.contentPublishWithHash({
+            url: fileUrl,
+            source_hash: sourceHash,
+            content_text: file.content.slice(0, 50000),
+            content_metadata: JSON.stringify({
+              title: basename,
+              type: ext,
+              size: file.content.length,
+              publishedAt: new Date().toISOString(),
+            }),
+            price: 0.0001,
+            visibility: visibility || 'private',
+          });
+
+          published++;
+        } catch (e) {
+          errors.push({ path: file.path, error: e.message });
+        }
+      }
+
+      logActivity('publish-batch', `Batch published: ${published} files`);
+      return reply.code(201).send({
+        success: true,
+        data: { published, skipped, errors },
+        error: null
+      });
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // DELETE /dashboard/api/content/:id — delete a content record
+  fastify.delete('/dashboard/api/content/:id', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const d = db.getDb();
+      const existing = d.prepare('SELECT id FROM content WHERE id = ?').get(id);
+      if (!existing) {
+        return reply.code(404).send({ success: false, data: null, error: 'Content not found' });
+      }
+      d.prepare('DELETE FROM content WHERE id = ?').run(id);
+      logActivity('delete', `Deleted content #${id}`);
+      return { success: true, data: { id }, error: null };
     } catch (err) {
       request.log.error(err);
       return reply.code(500).send({ success: false, data: null, error: err.message });

@@ -572,6 +572,289 @@
     }
 
     .copy-toast.show { opacity: 1; }
+
+    /* ── CONTENT UPLOAD ─────────────────────── */
+
+    .add-content-zone {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .add-content-zone h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    .mode-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .mode-tab {
+      padding: 10px 20px;
+      background: var(--bg);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .mode-tab:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .mode-tab.active {
+      border-color: var(--accent);
+      background: rgba(99,102,241,0.1);
+      color: var(--accent-hover);
+    }
+
+    .mode-tab svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .mode-panel { display: none; }
+    .mode-panel.active { display: block; }
+
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--bg);
+      position: relative;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(99,102,241,0.06);
+    }
+
+    .drop-zone.drag-over {
+      border-style: solid;
+    }
+
+    .drop-zone .drop-icon {
+      font-size: 36px;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .drop-zone .drop-label {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .drop-zone .drop-hint {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    .drop-zone .drop-formats {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    .browse-btns {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .file-staging {
+      margin-top: 16px;
+      display: none;
+    }
+
+    .file-staging.has-files {
+      display: block;
+    }
+
+    .file-staging-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .staged-list {
+      max-height: 240px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg);
+    }
+
+    .staged-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .staged-item:last-child {
+      border-bottom: none;
+    }
+
+    .staged-item input[type="checkbox"] {
+      accent-color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .staged-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .staged-size {
+      color: var(--text-muted);
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    .staged-error {
+      color: var(--red);
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    .staged-remove {
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .staged-remove:hover {
+      color: var(--red);
+    }
+
+    .visibility-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 16px;
+      font-size: 14px;
+    }
+
+    .visibility-row label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .visibility-row input[type="radio"] {
+      accent-color: var(--accent);
+    }
+
+    .publish-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 16px;
+      gap: 12px;
+    }
+
+    .upload-progress {
+      display: none;
+      margin-top: 12px;
+    }
+
+    .upload-progress.active {
+      display: block;
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      height: 6px;
+      background: var(--bg);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 3px;
+      transition: width 0.2s;
+      width: 0%;
+    }
+
+    .progress-text {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* Paste text mode */
+    .paste-area {
+      width: 100%;
+      min-height: 160px;
+      padding: 12px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: 'SF Mono', 'Consolas', monospace;
+      font-size: 14px;
+      resize: vertical;
+      outline: none;
+    }
+
+    .paste-area:focus {
+      border-color: var(--accent);
+    }
+
+    /* Published content list improvements */
+    .content-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .btn-icon {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 4px;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    .btn-icon:hover {
+      background: rgba(239,68,68,0.15);
+      color: var(--red);
+    }
   </style>
 </head>
 <body>
@@ -672,7 +955,7 @@
       </div>
 
       <div class="quick-actions">
-        <button class="btn" onclick="openPublishModal()">Add Content</button>
+        <button class="btn" onclick="showTab('content')">Add Content</button>
         <button class="btn secondary" onclick="showTab('search')">Search Network</button>
         <button class="btn secondary" onclick="openAddPeerModal()">Add Peer</button>
       </div>
@@ -734,18 +1017,144 @@
 
     <!-- ─── CONTENT TAB ───────────────────── -->
     <div class="tab-content" id="tab-content">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
-        <h2 style="font-size:18px">Published Content</h2>
-        <button class="btn" onclick="openPublishModal()">Add Content</button>
+
+      <!-- ADD CONTENT ZONE -->
+      <div class="add-content-zone">
+        <h3>Add Content to Your Node</h3>
+
+        <!-- Mode Tabs -->
+        <div class="mode-tabs">
+          <div class="mode-tab active" data-mode="upload" onclick="switchMode('upload')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Upload Files
+          </div>
+          <div class="mode-tab" data-mode="paste" onclick="switchMode('paste')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+            Paste Text
+          </div>
+          <div class="mode-tab" data-mode="url" onclick="switchMode('url')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            Web URL
+          </div>
+        </div>
+
+        <!-- ── UPLOAD FILES MODE ── -->
+        <div class="mode-panel active" id="mode-upload">
+          <div class="drop-zone" id="drop-zone"
+               ondragover="handleDragOver(event)"
+               ondragleave="handleDragLeave(event)"
+               ondrop="handleDrop(event)"
+               onclick="document.getElementById('file-input').click()">
+            <span class="drop-icon">&#128194;</span>
+            <div class="drop-label">Drag & drop files or folders here</div>
+            <div class="drop-hint">or click anywhere in this area to browse</div>
+            <div class="browse-btns" onclick="event.stopPropagation()">
+              <button class="btn small" onclick="document.getElementById('file-input').click()">Browse Files</button>
+              <button class="btn small secondary" onclick="document.getElementById('folder-input').click()">Browse Folder</button>
+            </div>
+            <div class="drop-formats">.md .txt .js .ts .py .json .yaml .html .css .sh .go .rs .java .c .cpp .rb .php and more</div>
+          </div>
+          <input type="file" id="file-input" multiple style="display:none" onchange="handleFileSelect(this.files)" accept=".md,.txt,.js,.ts,.py,.json,.yaml,.yml,.html,.css,.sh,.bat,.ps1,.cfg,.ini,.toml,.xml,.csv,.sql,.go,.rs,.java,.c,.cpp,.h,.rb,.php,.jsx,.tsx,.vue,.svelte,.scss,.less">
+          <input type="file" id="folder-input" webkitdirectory style="display:none" onchange="handleFolderSelect(this.files)">
+
+          <!-- Staged files list -->
+          <div class="file-staging" id="file-staging">
+            <div class="file-staging-header">
+              <span id="staging-count">0 files ready</span>
+              <button class="btn small secondary" onclick="clearStaged()">Clear All</button>
+            </div>
+            <div class="staged-list" id="staged-list"></div>
+
+            <div class="visibility-row">
+              <strong>Visibility:</strong>
+              <label><input type="radio" name="upload-vis" value="private" checked> Private</label>
+              <label><input type="radio" name="upload-vis" value="whitelist"> Whitelist</label>
+              <label><input type="radio" name="upload-vis" value="public"> Public</label>
+            </div>
+
+            <div class="publish-bar">
+              <span id="staging-size" style="color:var(--text-muted); font-size:13px"></span>
+              <button class="btn" id="publish-staged-btn" onclick="publishStagedFiles()">Publish Files</button>
+            </div>
+
+            <div class="upload-progress" id="upload-progress">
+              <div class="progress-bar-container">
+                <div class="progress-bar-fill" id="progress-bar"></div>
+              </div>
+              <div class="progress-text" id="progress-text">Publishing...</div>
+            </div>
+
+            <div id="upload-result" class="success-msg hidden" style="margin-top:12px"></div>
+            <div id="upload-error" class="error-msg hidden" style="margin-top:12px"></div>
+          </div>
+        </div>
+
+        <!-- ── PASTE TEXT MODE ── -->
+        <div class="mode-panel" id="mode-paste">
+          <div class="form-group">
+            <label>Title</label>
+            <input type="text" id="paste-title" placeholder="e.g. My Notes, API Reference, Meeting Notes">
+          </div>
+          <div class="form-group">
+            <label>Content</label>
+            <textarea class="paste-area" id="paste-text" placeholder="Paste your text content here..."></textarea>
+          </div>
+          <div class="visibility-row">
+            <strong>Visibility:</strong>
+            <label><input type="radio" name="paste-vis" value="private" checked> Private</label>
+            <label><input type="radio" name="paste-vis" value="whitelist"> Whitelist</label>
+            <label><input type="radio" name="paste-vis" value="public"> Public</label>
+          </div>
+          <div class="publish-bar">
+            <span id="paste-char-count" style="color:var(--text-muted); font-size:13px">0 characters</span>
+            <button class="btn" onclick="publishPastedText()">Publish Text</button>
+          </div>
+          <div id="paste-result" class="success-msg hidden" style="margin-top:12px"></div>
+          <div id="paste-error" class="error-msg hidden" style="margin-top:12px"></div>
+        </div>
+
+        <!-- ── WEB URL MODE ── -->
+        <div class="mode-panel" id="mode-url">
+          <div class="form-group">
+            <label>URL to crawl</label>
+            <input type="url" id="url-input" placeholder="https://example.com/docs/api">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Visibility</label>
+              <select id="url-visibility">
+                <option value="public">Public</option>
+                <option value="private">Private</option>
+                <option value="whitelist">Whitelist Only</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Price (USD)</label>
+              <input type="number" id="url-price" value="0.0003" step="0.0001" min="0">
+            </div>
+          </div>
+          <div class="publish-bar">
+            <span></span>
+            <button class="btn" id="url-publish-btn" onclick="publishUrl()">Crawl & Publish</button>
+          </div>
+          <div id="url-result" class="success-msg hidden" style="margin-top:12px"></div>
+          <div id="url-error" class="error-msg hidden" style="margin-top:12px"></div>
+        </div>
       </div>
+
+      <!-- PUBLISHED CONTENT LIST -->
       <div class="panel">
+        <div class="panel-header">
+          <span>Your Published Content</span>
+          <span id="content-total" style="color:var(--text-muted); font-size:13px"></span>
+        </div>
         <div class="panel-body">
           <table class="data-table">
             <thead>
-              <tr><th>URL</th><th>Visibility</th><th>Price</th><th>Published</th></tr>
+              <tr><th>Name</th><th>Visibility</th><th>Size</th><th>Published</th><th></th></tr>
             </thead>
             <tbody id="content-table-body">
-              <tr><td colspan="4"><div class="loading-overlay"><div class="spinner"></div> Loading...</div></td></tr>
+              <tr><td colspan="5"><div class="loading-overlay"><div class="spinner"></div> Loading...</div></td></tr>
             </tbody>
           </table>
         </div>
@@ -1268,8 +1677,10 @@
 
       // Full content table
       const tbody = document.getElementById('content-table-body');
+      const totalEl = document.getElementById('content-total');
+      if (totalEl) totalEl.textContent = data.data.total ? data.data.total + ' items' : '';
       if (items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No content published yet.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No content published yet. Use the form above to add files, text, or URLs.</td></tr>';
       } else {
         tbody.innerHTML = items.map(renderContentRow4Col).join('');
       }
@@ -1285,10 +1696,51 @@
 
   function renderContentRow4Col(item) {
     const vis = visibilityBadge(item.visibility);
-    const price = item.price ? '$' + item.price.toFixed(4) : 'Free';
-    const url = escapeHtml(truncate(item.url, 60));
+    // Extract a friendly name from the URL
+    let name = item.url || '';
+    if (name.startsWith('file:///')) {
+      name = name.replace('file:///', '').split('/').pop();
+    } else if (name.startsWith('text://')) {
+      name = name.replace('text://', '');
+    } else {
+      name = truncate(name, 50);
+    }
+
+    // Try to get size from metadata
+    let sizeStr = '--';
+    try {
+      const meta = typeof item.content_metadata === 'string' ? JSON.parse(item.content_metadata) : item.content_metadata;
+      if (meta && meta.size) sizeStr = formatFileSize(meta.size);
+    } catch (e) { /* ignore */ }
+
     const date = item.fetched_at ? new Date(item.fetched_at).toLocaleString() : '--';
-    return `<tr><td title="${escapeHtml(item.url)}">${url}</td><td>${vis}</td><td>${price}</td><td>${date}</td></tr>`;
+    return `<tr>
+      <td title="${escapeHtml(item.url)}">${escapeHtml(name)}</td>
+      <td>${vis}</td>
+      <td>${sizeStr}</td>
+      <td>${date}</td>
+      <td class="content-actions">
+        <button class="btn-icon" onclick="deleteContent(${item.id})" title="Delete">&#128465;</button>
+      </td>
+    </tr>`;
+  }
+
+  function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  async function deleteContent(id) {
+    if (!confirm('Delete this content?')) return;
+    try {
+      const resp = await fetch(API + '/content/' + id, { method: 'DELETE' });
+      const data = await resp.json();
+      if (data.success) {
+        loadContent();
+        refreshStatus();
+      }
+    } catch (e) { /* silent */ }
   }
 
   function visibilityBadge(v) {
@@ -1816,6 +2268,440 @@
 
     btn.disabled = false;
     btn.textContent = 'Save & Activate';
+  }
+
+  // ═══════════════════════════════════════════
+  //  FILE UPLOAD / CONTENT MODES
+  // ═══════════════════════════════════════════
+
+  // Supported extensions (browser-side)
+  const SUPPORTED_EXTS = new Set([
+    'md', 'txt', 'js', 'ts', 'py', 'json', 'yaml', 'yml',
+    'html', 'css', 'sh', 'bat', 'ps1', 'cfg', 'ini', 'toml',
+    'xml', 'csv', 'sql', 'go', 'rs', 'java', 'c', 'cpp', 'h',
+    'rb', 'php', 'jsx', 'tsx', 'vue', 'svelte', 'scss', 'less',
+    'lock', 'gitignore', 'editorconfig', 'dockerignore'
+  ]);
+
+  const SKIP_PATHS = ['node_modules', '.git', '__pycache__', '.venv', 'venv',
+    '.next', '.nuxt', 'dist', 'build', '.cache', '.pytest_cache',
+    '.mypy_cache', 'coverage', '.nyc_output', '.idea', '.vscode',
+    'vendor', 'target', 'bin', 'obj'];
+
+  const MAX_FILE_SIZE = 1024 * 1024; // 1MB
+
+  let stagedFiles = []; // { name, path, content, size, checked, error }
+
+  function switchMode(mode) {
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
+    document.querySelector(`.mode-tab[data-mode="${mode}"]`).classList.add('active');
+    document.getElementById('mode-' + mode).classList.add('active');
+  }
+
+  // ── Drag & Drop ──
+
+  function handleDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('drop-zone').classList.add('drag-over');
+  }
+
+  function handleDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('drop-zone').classList.remove('drag-over');
+  }
+
+  async function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('drop-zone').classList.remove('drag-over');
+
+    const items = e.dataTransfer.items;
+    if (!items) return;
+
+    const fileEntries = [];
+    const promises = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+      if (item) {
+        promises.push(traverseEntry(item, fileEntries));
+      }
+    }
+
+    await Promise.all(promises);
+
+    // If no entries found (browser doesn't support webkitGetAsEntry), fall back to files
+    if (fileEntries.length === 0 && e.dataTransfer.files.length > 0) {
+      handleFileSelect(e.dataTransfer.files);
+      return;
+    }
+
+    // Read all file entries
+    for (const entry of fileEntries) {
+      const file = await getFileFromEntry(entry.entry);
+      if (file) {
+        await readAndStageFile(file, entry.path);
+      }
+    }
+
+    renderStagedFiles();
+  }
+
+  function traverseEntry(entry, results, pathPrefix) {
+    pathPrefix = pathPrefix || '';
+    return new Promise((resolve) => {
+      if (entry.isFile) {
+        const name = entry.name;
+        const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
+        const fullPath = pathPrefix ? pathPrefix + '/' + name : name;
+
+        // Check if supported
+        if (SUPPORTED_EXTS.has(ext) || ['Makefile', 'Dockerfile', 'Procfile', '.gitignore', '.dockerignore', '.editorconfig'].includes(name)) {
+          results.push({ entry, path: fullPath });
+        }
+        resolve();
+      } else if (entry.isDirectory) {
+        // Skip certain directories
+        if (SKIP_PATHS.includes(entry.name) || entry.name.startsWith('.')) {
+          resolve();
+          return;
+        }
+        const reader = entry.createReader();
+        reader.readEntries(async (entries) => {
+          const dirPath = pathPrefix ? pathPrefix + '/' + entry.name : entry.name;
+          const subPromises = entries.map(e => traverseEntry(e, results, dirPath));
+          await Promise.all(subPromises);
+          resolve();
+        }, () => resolve());
+      } else {
+        resolve();
+      }
+    });
+  }
+
+  function getFileFromEntry(entry) {
+    return new Promise((resolve) => {
+      entry.file(f => resolve(f), () => resolve(null));
+    });
+  }
+
+  // ── File Select (browse) ──
+
+  function handleFileSelect(files) {
+    Array.from(files).forEach(f => readAndStageFile(f, f.name));
+    // Small delay to let FileReader finish
+    setTimeout(renderStagedFiles, 100);
+  }
+
+  function handleFolderSelect(files) {
+    const fileArr = Array.from(files);
+    let processed = 0;
+    const total = fileArr.length;
+
+    fileArr.forEach(f => {
+      // webkitRelativePath gives us the relative path within the folder
+      const relPath = f.webkitRelativePath || f.name;
+
+      // Skip unwanted directories
+      const pathParts = relPath.split('/');
+      const shouldSkip = pathParts.some(part => SKIP_PATHS.includes(part) || (part.startsWith('.') && part !== '.gitignore' && part !== '.editorconfig' && part !== '.dockerignore'));
+      if (shouldSkip) {
+        processed++;
+        if (processed >= total) renderStagedFiles();
+        return;
+      }
+
+      readAndStageFile(f, relPath).then(() => {
+        processed++;
+        if (processed >= total) renderStagedFiles();
+      });
+    });
+
+    if (total === 0) renderStagedFiles();
+  }
+
+  async function readAndStageFile(file, displayPath) {
+    const name = file.name;
+    const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
+
+    // Check extension
+    if (!SUPPORTED_EXTS.has(ext) && !['Makefile', 'Dockerfile', 'Procfile', '.gitignore', '.dockerignore', '.editorconfig'].includes(name)) {
+      stagedFiles.push({ name: displayPath, path: displayPath, content: null, size: file.size, checked: false, error: 'Unsupported file type' });
+      return;
+    }
+
+    // Check size
+    if (file.size > MAX_FILE_SIZE) {
+      stagedFiles.push({ name: displayPath, path: displayPath, content: null, size: file.size, checked: false, error: 'Too large (>1MB)' });
+      return;
+    }
+
+    if (file.size === 0) {
+      stagedFiles.push({ name: displayPath, path: displayPath, content: null, size: 0, checked: false, error: 'Empty file' });
+      return;
+    }
+
+    // Read content
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target.result;
+        // Check for binary (null bytes in first 1000 chars)
+        const sample = content.slice(0, 1000);
+        if (sample.includes('\0')) {
+          stagedFiles.push({ name: displayPath, path: displayPath, content: null, size: file.size, checked: false, error: 'Binary file' });
+        } else {
+          stagedFiles.push({ name: displayPath, path: displayPath, content, size: file.size, checked: true, error: null });
+        }
+        resolve();
+      };
+      reader.onerror = () => {
+        stagedFiles.push({ name: displayPath, path: displayPath, content: null, size: file.size, checked: false, error: 'Read error' });
+        resolve();
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  function renderStagedFiles() {
+    const staging = document.getElementById('file-staging');
+    const list = document.getElementById('staged-list');
+    const countEl = document.getElementById('staging-count');
+    const sizeEl = document.getElementById('staging-size');
+
+    if (stagedFiles.length === 0) {
+      staging.classList.remove('has-files');
+      return;
+    }
+
+    staging.classList.add('has-files');
+
+    const validFiles = stagedFiles.filter(f => !f.error);
+    const checkedFiles = stagedFiles.filter(f => f.checked && !f.error);
+    const totalSize = checkedFiles.reduce((sum, f) => sum + f.size, 0);
+
+    countEl.textContent = `${checkedFiles.length} of ${validFiles.length} files selected`;
+    sizeEl.textContent = `Total: ${formatFileSize(totalSize)}`;
+
+    list.innerHTML = stagedFiles.map((f, i) => {
+      if (f.error) {
+        return `<div class="staged-item">
+          <input type="checkbox" disabled>
+          <span class="staged-name" style="color:var(--text-muted)">${escapeHtml(f.name)}</span>
+          <span class="staged-error">${escapeHtml(f.error)}</span>
+          <span class="staged-remove" onclick="removeStaged(${i})">&times;</span>
+        </div>`;
+      }
+      return `<div class="staged-item">
+        <input type="checkbox" ${f.checked ? 'checked' : ''} onchange="toggleStaged(${i}, this.checked)">
+        <span class="staged-name">${escapeHtml(f.name)}</span>
+        <span class="staged-size">${formatFileSize(f.size)}</span>
+        <span class="staged-remove" onclick="removeStaged(${i})">&times;</span>
+      </div>`;
+    }).join('');
+  }
+
+  function toggleStaged(index, checked) {
+    stagedFiles[index].checked = checked;
+    renderStagedFiles();
+  }
+
+  function removeStaged(index) {
+    stagedFiles.splice(index, 1);
+    renderStagedFiles();
+  }
+
+  function clearStaged() {
+    stagedFiles = [];
+    renderStagedFiles();
+    document.getElementById('upload-result').classList.add('hidden');
+    document.getElementById('upload-error').classList.add('hidden');
+    // Reset file inputs so the same files can be re-selected
+    document.getElementById('file-input').value = '';
+    document.getElementById('folder-input').value = '';
+  }
+
+  // ── Publish Staged Files ──
+
+  async function publishStagedFiles() {
+    const filesToPublish = stagedFiles.filter(f => f.checked && !f.error && f.content);
+    if (filesToPublish.length === 0) {
+      showError('upload-error', 'No files selected to publish.');
+      return;
+    }
+
+    const visibility = document.querySelector('input[name="upload-vis"]:checked').value;
+    const btn = document.getElementById('publish-staged-btn');
+    const progress = document.getElementById('upload-progress');
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+    const resultEl = document.getElementById('upload-result');
+    const errorEl = document.getElementById('upload-error');
+
+    btn.disabled = true;
+    btn.textContent = 'Publishing...';
+    progress.classList.add('active');
+    resultEl.classList.add('hidden');
+    errorEl.classList.add('hidden');
+
+    // Batch publish (send in chunks of 20 to avoid request size issues)
+    const BATCH_SIZE = 20;
+    let totalPublished = 0;
+    let totalErrors = 0;
+
+    for (let i = 0; i < filesToPublish.length; i += BATCH_SIZE) {
+      const batch = filesToPublish.slice(i, i + BATCH_SIZE);
+      const pct = Math.round(((i + batch.length) / filesToPublish.length) * 100);
+      progressBar.style.width = pct + '%';
+      progressText.textContent = `Publishing ${i + 1}-${i + batch.length} of ${filesToPublish.length}...`;
+
+      try {
+        const resp = await fetch(API + '/publish-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            files: batch.map(f => ({ path: f.path, content: f.content })),
+            visibility
+          })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          totalPublished += data.data.published;
+          totalErrors += (data.data.errors || []).length;
+        } else {
+          totalErrors += batch.length;
+        }
+      } catch (e) {
+        totalErrors += batch.length;
+      }
+    }
+
+    progressBar.style.width = '100%';
+    progressText.textContent = 'Done!';
+
+    btn.disabled = false;
+    btn.textContent = 'Publish Files';
+
+    if (totalPublished > 0) {
+      resultEl.textContent = `Published ${totalPublished} file${totalPublished !== 1 ? 's' : ''} successfully!` + (totalErrors > 0 ? ` (${totalErrors} errors)` : '');
+      resultEl.classList.remove('hidden');
+      loadContent();
+      refreshStatus();
+      // Clear staged after successful publish
+      setTimeout(() => {
+        stagedFiles = [];
+        renderStagedFiles();
+        progress.classList.remove('active');
+      }, 2000);
+    } else {
+      showError('upload-error', 'Failed to publish files. Check the server.');
+    }
+  }
+
+  // ── Paste Text Mode ──
+
+  // Character count for paste textarea
+  document.addEventListener('DOMContentLoaded', () => {
+    const ta = document.getElementById('paste-text');
+    if (ta) {
+      ta.addEventListener('input', () => {
+        const count = ta.value.length;
+        document.getElementById('paste-char-count').textContent = count.toLocaleString() + ' character' + (count !== 1 ? 's' : '');
+      });
+    }
+  });
+
+  async function publishPastedText() {
+    const title = document.getElementById('paste-title').value.trim();
+    const text = document.getElementById('paste-text').value;
+    const visibility = document.querySelector('input[name="paste-vis"]:checked').value;
+
+    if (!title) {
+      showError('paste-error', 'Please enter a title.');
+      return;
+    }
+    if (!text.trim()) {
+      showError('paste-error', 'Please paste some text content.');
+      return;
+    }
+
+    try {
+      const resp = await fetch(API + '/publish-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, text, visibility })
+      });
+      const data = await resp.json();
+
+      if (!data.success) {
+        showError('paste-error', data.error || 'Publish failed.');
+        return;
+      }
+
+      document.getElementById('paste-result').textContent = 'Published "' + title + '" successfully!';
+      document.getElementById('paste-result').classList.remove('hidden');
+      document.getElementById('paste-error').classList.add('hidden');
+
+      // Clear form
+      document.getElementById('paste-title').value = '';
+      document.getElementById('paste-text').value = '';
+      document.getElementById('paste-char-count').textContent = '0 characters';
+
+      loadContent();
+      refreshStatus();
+    } catch (e) {
+      showError('paste-error', 'Network error. Is the server running?');
+    }
+  }
+
+  // ── Web URL Mode (replaces old publish modal) ──
+
+  async function publishUrl() {
+    const url = document.getElementById('url-input').value.trim();
+    if (!url) {
+      showError('url-error', 'Please enter a URL.');
+      return;
+    }
+
+    const visibility = document.getElementById('url-visibility').value;
+    const price = parseFloat(document.getElementById('url-price').value) || 0.0003;
+
+    const btn = document.getElementById('url-publish-btn');
+    btn.disabled = true;
+    btn.textContent = 'Crawling...';
+
+    try {
+      const resp = await fetch(API + '/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, visibility, price })
+      });
+      const data = await resp.json();
+
+      if (!data.success) {
+        showError('url-error', data.error || 'Publish failed.');
+        btn.disabled = false;
+        btn.textContent = 'Crawl & Publish';
+        return;
+      }
+
+      document.getElementById('url-result').textContent = 'Published URL successfully!';
+      document.getElementById('url-result').classList.remove('hidden');
+      document.getElementById('url-error').classList.add('hidden');
+      document.getElementById('url-input').value = '';
+      btn.disabled = false;
+      btn.textContent = 'Crawl & Publish';
+
+      loadContent();
+      refreshStatus();
+    } catch (e) {
+      showError('url-error', 'Network error. Is the server running?');
+      btn.disabled = false;
+      btn.textContent = 'Crawl & Publish';
+    }
   }
 
   // ═══════════════════════════════════════════

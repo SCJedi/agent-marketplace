@@ -182,6 +182,17 @@ function initTables() {
       added_at TEXT DEFAULT (datetime('now'))
     );
   `);
+
+  // ── Migrations for older databases ──
+  const migrations = [
+    `ALTER TABLE content ADD COLUMN content_hash TEXT`,
+    `ALTER TABLE content ADD COLUMN visibility TEXT DEFAULT 'public'`,
+    `ALTER TABLE content ADD COLUMN owner_key TEXT`,
+    `ALTER TABLE content ADD COLUMN token_cost_saved REAL DEFAULT 0`,
+  ];
+  for (const sql of migrations) {
+    try { db.exec(sql); } catch (e) { /* column already exists */ }
+  }
 }
 
 // --- Content CRUD ---
