@@ -1,7 +1,7 @@
 # Red Team Report: Suite API-SECURITY
 
-**Date:** 2026-03-25T20:34:43.135Z
-**Duration:** 1.7s
+**Date:** 2026-03-26T16:41:36.756Z
+**Duration:** 1.5s
 
 ## Summary
 
@@ -33,7 +33,7 @@
 - **Metric:** 0
 - **Threshold:** 0
 - **Details:** 0/100 spoofed publications succeeded. Identity spoofing is blocked.
-- **Duration:** 422ms
+- **Duration:** 392ms
 
 ### RT-A002: SQL Injection via Search
 
@@ -43,7 +43,7 @@
 - **Metric:** 0
 - **Threshold:** 0
 - **Details:** 0/47 SQL injection payloads caused errors or data leakage. Search endpoint handles malicious input safely.
-- **Duration:** 157ms
+- **Duration:** 137ms
 
 ### RT-A003: Rate Limit Bypass via Sybil Registration
 
@@ -53,7 +53,7 @@
 - **Metric:** 5
 - **Threshold:** 5
 - **Details:** Same-origin: 5/20 registrations succeeded (limit: 5). Rate limiting effective. WARNING: 10/10 bypass attempts with different origins succeeded. Rate limit is per-origin only.
-- **Duration:** 99ms
+- **Duration:** 69ms
 
 ### RT-A004: Self-Verification Attack
 
@@ -63,7 +63,7 @@
 - **Metric:** 0
 - **Threshold:** 0
 - **Details:** Self-verification attack BLOCKED. 1/3 Sybil submissions were accepted but the artifact was NOT marked as verified. The system has protections against self-verification.
-- **Duration:** 199ms
+- **Duration:** 100ms
 
 ### RT-A005: Hash Collision / Content Integrity Bypass
 
@@ -72,8 +72,8 @@
 - **Severity:** none
 - **Metric:** 1
 - **Threshold:** 1
-- **Details:** 15/15 content variants were detected as divergent. Hash-based content integrity verification catches all tested attack variants.
-- **Duration:** 168ms
+- **Details:** 15/15 attack variants neutralized. 9 stripped by normalization (hash matched original), 6 detected as divergent. Unicode normalization + hash verification catches all tested attack variants.
+- **Duration:** 101ms
 
 ## Recommendations
 

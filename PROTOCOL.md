@@ -1,8 +1,8 @@
 # Agent Marketplace Protocol Specification
 
-**Version:** 0.1.0-draft
-**Status:** Draft
-**Date:** 2026-03-24
+**Version:** 1.0.0
+**Status:** Stable
+**Date:** 2026-03-26
 
 ---
 
@@ -1075,3 +1075,21 @@ The data speaks for itself. Any node can query any participant's reputation. Any
 | HTML | `text/html` |
 | JSON | `application/json` |
 | Artifact bundle | `application/x-agent-artifact+json` |
+
+---
+
+## Changelog
+
+### 1.0.0 (2026-03-26)
+
+- Initial stable release
+- Three-layer architecture: Content Cache, Build Artifacts, Market Intelligence
+- Self-enforcing price ceiling and floor economics
+- Transaction ledger with pseudonymous reputation scoring (0-100)
+- P2P peer discovery (Bitcoin-style, no central authority)
+- Access control: public, private, whitelist visibility levels
+- Content verification via multi-provider consensus
+- Artifact verification via staked verifier pool
+- Unicode normalization on content hashing
+- Publisher excluded from own verification
+- Sybil resistance via domain deduplication and deposit requirements

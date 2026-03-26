@@ -318,7 +318,7 @@ class Marketplace {
     }
 
     const headers = {
-      'User-Agent': 'agent-marketplace-sdk/0.1.0',
+      'User-Agent': 'agent-marketplace-sdk/1.0.0',
     };
     if (this._apiKey) {
       headers['x-api-key'] = this._apiKey;

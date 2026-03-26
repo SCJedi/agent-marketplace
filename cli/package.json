@@ -1,6 +1,6 @@
 {
   "name": "agent-marketplace",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "CLI for the Agent Marketplace — search, publish, and manage AI content",
   "bin": { "agent-marketplace": "./bin/cli.js" },
   "scripts": { "test": "node --test tests/" },

@@ -213,6 +213,11 @@ function initTables() {
     `ALTER TABLE content ADD COLUMN token_cost_saved REAL DEFAULT 0`,
     `ALTER TABLE artifacts ADD COLUMN visibility TEXT DEFAULT 'public'`,
     `ALTER TABLE artifacts ADD COLUMN owner_key TEXT`,
+    `ALTER TABLE nodes ADD COLUMN deposit REAL DEFAULT 0`,
+    `ALTER TABLE nodes ADD COLUMN probation_remaining INTEGER DEFAULT 10`,
+    `ALTER TABLE nodes ADD COLUMN publish_count INTEGER DEFAULT 0`,
+    `ALTER TABLE nodes ADD COLUMN flagged INTEGER DEFAULT 0`,
+    `ALTER TABLE nodes ADD COLUMN flag_reason TEXT`,
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch (e) { /* column already exists */ }
@@ -741,10 +746,11 @@ function contentPublishWithHash(record) {
   const { v4: uuidv4 } = require('uuid');
   const id = record.id || uuidv4();
 
-  // Generate content hash from raw text — any content difference produces a different hash
-  // This catches all manipulation attempts: zero-width chars, homoglyphs, RTL overrides, whitespace tricks
-  const contentHash = record.content_text
-    ? crypto.createHash('sha256').update(record.content_text).digest('hex')
+  // Generate content hash from NORMALIZED text — catches all manipulation attempts:
+  // zero-width chars, homoglyphs, RTL overrides, whitespace tricks, combining diacriticals
+  const normalizedText = record.content_text ? normalizeForHash(record.content_text) : null;
+  const contentHash = normalizedText
+    ? crypto.createHash('sha256').update(normalizedText).digest('hex')
     : null;
 
   d.prepare(`
@@ -943,10 +949,6 @@ function contentUpdate(id, updates, callerKey) {
   params.push(id);
   d.prepare(`UPDATE content SET ${fields.join(', ')} WHERE id = ?`).run(...params);
   return d.prepare('SELECT * FROM content WHERE id = ?').get(id);
-}
-
-function getContentById(id) {
-  return getDb().prepare('SELECT * FROM content WHERE id = ?').get(id) || null;
 }
 
 // --- Transaction Ledger ---

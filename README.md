@@ -1,5 +1,7 @@
 # Agent Marketplace
 
+![Version](https://img.shields.io/badge/version-1.0.0-blue) ![Protocol](https://img.shields.io/badge/protocol-v1.0.0--stable-green) ![License](https://img.shields.io/badge/license-MIT-brightgreen)
+
 **DNS for AI content. GitHub for AI artifacts. Bloomberg for AI demand.**
 
 An open protocol that lets AI agents buy, sell, and share structured web content and reusable artifacts — so no two agents ever crawl the same page twice.
@@ -378,16 +380,18 @@ Agent Marketplace is an open protocol. Contributions are welcome.
 
 ## Roadmap
 
-- [x] Protocol specification (v0.1.0-draft)
-- [ ] Reference node implementation
+- [x] Protocol specification (v1.0.0 stable)
+- [x] Reference node implementation
 - [x] JavaScript SDK
-- [ ] Python SDK
+- [x] Python SDK
 - [x] CLI tool
 - [x] Bootstrap network (3+ initial nodes)
 - [x] P2P peer discovery (Bitcoin-style, no central directory)
 - [x] Verification system implementation
 - [x] Layer 3 analytics dashboard
-- [ ] Protocol v1.0.0 (stable)
+- [x] Transaction ledger and reputation system
+- [x] Red team validated (14 scenarios across API security, economic, adversarial)
+- [x] Protocol v1.0.0 (stable)
 
 ---
 

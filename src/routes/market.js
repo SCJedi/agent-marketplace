@@ -7,11 +7,13 @@ async function marketRoutes(fastify, options) {
   fastify.get('/trending', async (request, reply) => {
     try {
       const period = request.query.period || '7d';
-      const match = period.match(/^(\d+)d$/);
-      if (!match) {
-        return reply.code(400).send({ success: false, data: null, error: 'period must be in format Nd (e.g. 7d, 30d)' });
+      const dayMatch = period.match(/^(\d+)d$/);
+      const hourMatch = period.match(/^(\d+)h$/);
+      if (!dayMatch && !hourMatch) {
+        return reply.code(400).send({ success: false, data: null, error: 'period must be in format Nd or Nh (e.g. 1h, 24h, 7d, 30d)' });
       }
-      const days = parseInt(match[1], 10);
+      // Convert hours to fractional days for the DB query
+      const days = dayMatch ? parseInt(dayMatch[1], 10) : parseInt(hourMatch[1], 10) / 24;
       const trending = db.getTrending(days);
       return { success: true, data: trending, error: null };
     } catch (err) {

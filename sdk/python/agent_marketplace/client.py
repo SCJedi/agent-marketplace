@@ -72,7 +72,7 @@ class Marketplace:
         if api_key:
             self._session.headers["Authorization"] = f"Bearer {api_key}"
             self._session.headers["x-api-key"] = api_key
-        self._session.headers["User-Agent"] = "agent-marketplace-sdk/0.1.0"
+        self._session.headers["User-Agent"] = "agent-marketplace-sdk/1.0.0"
 
     # ------------------------------------------------------------------
     # Content operations
