@@ -120,8 +120,8 @@ class Marketplace:
         self,
         url: str,
         content: Dict[str, Any],
-        price: float,
-        token_cost_saved: float,
+        price: float = 0,
+        token_cost_saved: float = 0,
         visibility: Optional[str] = None,
         authorized_keys: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
@@ -132,7 +132,7 @@ class Marketplace:
         Args:
             url: The original URL of the content.
             content: Dictionary with ``text``, ``structured``, ``links``, ``metadata``.
-            price: Price to charge in credits.
+            price: Price to charge in credits (default 0 = free).
             token_cost_saved: Estimated token cost saved by using this pre-cleaned content.
             visibility: Access level — ``"public"`` (default), ``"private"``, or ``"whitelist"``.
             authorized_keys: List of API keys to whitelist (only when visibility is ``"whitelist"``).
@@ -261,7 +261,7 @@ class Marketplace:
         description: str,
         category: str,
         files: List[str],
-        price: float,
+        price: float = 0,
         visibility: Optional[str] = None,
         authorized_keys: Optional[List[str]] = None,
         **kwargs: Any,
@@ -273,7 +273,7 @@ class Marketplace:
             description: What the artifact does and who it's for.
             category: Category (e.g. ``tool``, ``library``, ``template``).
             files: List of file paths to include.
-            price: Price in credits.
+            price: Price in credits (default 0 = free).
             visibility: Access level — ``"public"`` (default), ``"private"``, or ``"whitelist"``.
             authorized_keys: List of API keys to whitelist (only when visibility is ``"whitelist"``).
             **kwargs: Additional fields (``tags``, ``version``, ``license``).

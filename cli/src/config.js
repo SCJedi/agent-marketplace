@@ -9,7 +9,7 @@ const CONFIG_FILENAME = 'agent-marketplace.json';
 const DEFAULTS = {
   node: 'http://localhost:3000',
   apiKey: '',
-  defaultPrice: 0.0003,
+  defaultPrice: 0,
   publishOnCrawl: true,
 };
 

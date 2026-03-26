@@ -47,7 +47,7 @@ function loadConfig() {
     marketplaceUrl: process.env.MARKETPLACE_URL || 'http://localhost:3001',
     apiKey: process.env.MARKETPLACE_API_KEY || '',
     defaultVisibility: 'private',
-    defaultPrice: 0.0001,
+    defaultPrice: 0,
   };
 }
 
@@ -118,7 +118,7 @@ async function publishFile(config, filePath, visibility) {
     source_hash: sourceHash,
     content_text: content.slice(0, 50000),
     content_metadata: JSON.stringify(metadata),
-    price: config.defaultPrice || 0.0001,
+    price: config.defaultPrice || 0,
     token_cost_saved: parseFloat(((content.length / 4 / 1000) * 0.003).toFixed(6)),
     visibility: visibility || config.defaultVisibility || 'private',
   };

@@ -47,7 +47,7 @@ async function run(client, filePath, opts = {}) {
   const ext = path.extname(resolved).replace('.', '') || 'text';
   const sourceHash = crypto.createHash('sha256').update(content).digest('hex');
 
-  const price = opts.price !== undefined ? parseFloat(opts.price) : 0.0001;
+  const price = opts.price !== undefined ? parseFloat(opts.price) : 0;
   const visibility = opts.visibility || 'private';
 
   const result = await client.publishContent(
@@ -67,7 +67,7 @@ async function run(client, filePath, opts = {}) {
   fmt.kvBlock([
     ['File', basename],
     ['URL', fileUrl],
-    ['Price', fmt.price(price)],
+    ['Price', price === 0 ? 'Free' : fmt.price(price)],
     ['Visibility', visibility],
     ['ID', result.id || result.content_id || '-'],
   ]);

@@ -17,7 +17,7 @@ async function run(client, url, opts = {}, config = {}) {
     return;
   }
 
-  const price = opts.price !== undefined ? parseFloat(opts.price) : (config.defaultPrice || 0.0003);
+  const price = opts.price !== undefined ? parseFloat(opts.price) : 0;
 
   fmt.info(`Crawling ${url} ...`);
 
@@ -94,10 +94,10 @@ async function run(client, url, opts = {}, config = {}) {
   );
 
   console.log();
-  fmt.success(`Published!`);
+  fmt.success(price === 0 ? 'Published for free. Use --price to set a price.' : 'Published!');
   const kvPairs = [
     ['URL', url],
-    ['Price', fmt.price(price)],
+    ['Price', price === 0 ? 'Free' : fmt.price(price)],
     ['Token cost saved', fmt.price(tokenCostSaved)],
     ['ID', result.id || result.content_id || '-'],
   ];

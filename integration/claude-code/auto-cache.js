@@ -34,7 +34,7 @@ function loadConfig() {
     apiKey: process.env.MARKETPLACE_API_KEY || '',
     autoPublish: true,
     defaultVisibility: 'private',
-    defaultPrice: 0.0001,
+    defaultPrice: 0,
     logFile: LOG_PATH,
   };
 }
@@ -127,7 +127,7 @@ async function publishToMarketplace(config, url, content) {
     source_hash: sourceHash,
     content_text: content.text || '',
     content_metadata: JSON.stringify(content.metadata || {}),
-    price: config.defaultPrice || 0.0001,
+    price: config.defaultPrice || 0,
     token_cost_saved: tokenCostSaved,
     visibility: config.defaultVisibility || 'private',
   };

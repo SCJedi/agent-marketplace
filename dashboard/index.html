@@ -1129,8 +1129,14 @@
               </select>
             </div>
             <div class="form-group">
-              <label>Price (USD)</label>
-              <input type="number" id="url-price" value="0.0003" step="0.0001" min="0">
+              <label>Pricing</label>
+              <select id="url-pricing-mode" onchange="toggleUrlPriceInput()">
+                <option value="free" selected>Free (no charge)</option>
+                <option value="custom">Set a price</option>
+                <option value="market">Use market average</option>
+              </select>
+              <input type="number" id="url-price" value="0" step="0.0001" min="0" style="display:none; margin-top:8px" placeholder="Price in USD">
+              <div id="url-market-price" style="display:none; margin-top:8px; color:var(--text-muted); font-size:13px"></div>
             </div>
           </div>
           <div class="publish-bar">
@@ -1421,8 +1427,14 @@
         </select>
       </div>
       <div class="form-group">
-        <label>Price (USD)</label>
-        <input type="number" id="pub-price" value="0.0003" step="0.0001" min="0">
+        <label>Pricing</label>
+        <select id="pub-pricing-mode" onchange="togglePubPriceInput()">
+          <option value="free" selected>Free (no charge)</option>
+          <option value="custom">Set a price</option>
+          <option value="market">Use market average</option>
+        </select>
+        <input type="number" id="pub-price" value="0" step="0.0001" min="0" style="display:none; margin-top:8px" placeholder="Price in USD">
+        <div id="pub-market-price" style="display:none; margin-top:8px; color:var(--text-muted); font-size:13px"></div>
       </div>
     </div>
     <div id="pub-error" class="error-msg hidden"></div>
@@ -1689,7 +1701,7 @@
 
   function renderContentRow3Col(item) {
     const vis = visibilityBadge(item.visibility);
-    const price = item.price ? '$' + item.price.toFixed(4) : 'Free';
+    const price = item.price > 0 ? '$' + item.price.toFixed(4) : '<span style="color:var(--green);font-weight:600">Free</span>';
     const url = escapeHtml(truncate(item.url, 50));
     return `<tr><td title="${escapeHtml(item.url)}">${url}</td><td>${vis}</td><td>${price}</td></tr>`;
   }
@@ -1849,7 +1861,7 @@
         body.innerHTML = results.map(r => {
           const url = r.url || r.slug || '';
           const type = r.type || 'content';
-          const price = r.price ? '$' + r.price.toFixed(4) : 'Free';
+          const price = r.price > 0 ? '$' + r.price.toFixed(4) : '<span style="color:var(--green);font-weight:600">Free</span>';
           const title = r.name || '';
           return `<div class="search-result-item">
             <div class="result-url">${escapeHtml(url)}</div>
@@ -1888,7 +1900,7 @@
     }
 
     const visibility = document.getElementById('pub-visibility').value;
-    const price = parseFloat(document.getElementById('pub-price').value) || 0.0003;
+    const price = parseFloat(document.getElementById('pub-price').value) || 0;
 
     const btn = document.getElementById('pub-submit');
     btn.disabled = true;
@@ -2657,6 +2669,73 @@
     }
   }
 
+  // ── Pricing mode toggles ──
+
+  async function fetchMarketPrice(targetEl) {
+    try {
+      const resp = await fetch(API + '/market-price?type=content');
+      const data = await resp.json();
+      if (data.success && data.data.sampleSize > 0) {
+        targetEl.textContent = 'Market average: $' + data.data.averagePrice.toFixed(4) + ' (' + data.data.sampleSize + ' priced items)';
+      } else {
+        targetEl.textContent = 'No priced items yet — market average unavailable.';
+      }
+    } catch (e) {
+      targetEl.textContent = 'Could not fetch market price.';
+    }
+  }
+
+  function toggleUrlPriceInput() {
+    const mode = document.getElementById('url-pricing-mode').value;
+    const priceInput = document.getElementById('url-price');
+    const marketEl = document.getElementById('url-market-price');
+    if (mode === 'free') {
+      priceInput.style.display = 'none';
+      priceInput.value = '0';
+      marketEl.style.display = 'none';
+    } else if (mode === 'custom') {
+      priceInput.style.display = 'block';
+      priceInput.value = '';
+      priceInput.focus();
+      marketEl.style.display = 'none';
+    } else if (mode === 'market') {
+      priceInput.style.display = 'none';
+      marketEl.style.display = 'block';
+      marketEl.textContent = 'Loading market price...';
+      fetchMarketPrice(marketEl).then(() => {
+        // Set the price input to the market average
+        const match = marketEl.textContent.match(/\$([0-9.]+)/);
+        if (match) priceInput.value = match[1];
+        else priceInput.value = '0';
+      });
+    }
+  }
+
+  function togglePubPriceInput() {
+    const mode = document.getElementById('pub-pricing-mode').value;
+    const priceInput = document.getElementById('pub-price');
+    const marketEl = document.getElementById('pub-market-price');
+    if (mode === 'free') {
+      priceInput.style.display = 'none';
+      priceInput.value = '0';
+      marketEl.style.display = 'none';
+    } else if (mode === 'custom') {
+      priceInput.style.display = 'block';
+      priceInput.value = '';
+      priceInput.focus();
+      marketEl.style.display = 'none';
+    } else if (mode === 'market') {
+      priceInput.style.display = 'none';
+      marketEl.style.display = 'block';
+      marketEl.textContent = 'Loading market price...';
+      fetchMarketPrice(marketEl).then(() => {
+        const match = marketEl.textContent.match(/\$([0-9.]+)/);
+        if (match) priceInput.value = match[1];
+        else priceInput.value = '0';
+      });
+    }
+  }
+
   // ── Web URL Mode (replaces old publish modal) ──
 
   async function publishUrl() {
@@ -2667,7 +2746,7 @@
     }
 
     const visibility = document.getElementById('url-visibility').value;
-    const price = parseFloat(document.getElementById('url-price').value) || 0.0003;
+    const price = parseFloat(document.getElementById('url-price').value) || 0;
 
     const btn = document.getElementById('url-publish-btn');
     btn.disabled = true;

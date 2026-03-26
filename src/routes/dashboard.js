@@ -386,7 +386,7 @@ async function dashboardRoutes(fastify, options) {
         source_hash: sourceHash,
         content_text: contentText.slice(0, 50000), // cap at 50k chars
         content_metadata: contentMetadata,
-        price: parseFloat(price) || 0.0003,
+        price: parseFloat(price) || 0,
         visibility: visibility || 'public'
       });
 
@@ -564,7 +564,7 @@ async function dashboardRoutes(fastify, options) {
           size: content.length,
           publishedAt: new Date().toISOString(),
         }),
-        price: 0.0001,
+        price: 0,
         visibility: visibility || 'private',
         owner_key: ownerKey,
       });
@@ -602,7 +602,7 @@ async function dashboardRoutes(fastify, options) {
           size: text.length,
           publishedAt: new Date().toISOString(),
         }),
-        price: 0.0001,
+        price: 0,
         visibility: visibility || 'private',
       });
 
@@ -649,7 +649,7 @@ async function dashboardRoutes(fastify, options) {
               size: file.content.length,
               publishedAt: new Date().toISOString(),
             }),
-            price: 0.0001,
+            price: 0,
             visibility: visibility || 'private',
           });
 
@@ -815,6 +815,51 @@ async function dashboardRoutes(fastify, options) {
 
       logActivity('duckdns', `DuckDNS configured: ${cleanDomain}.duckdns.org`);
       return { success: true, data: { domain: cleanDomain, fullDomain: `${cleanDomain}.duckdns.org` }, error: null };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // GET /dashboard/api/market-price — average price of recent items by type/category
+  fastify.get('/dashboard/api/market-price', async (request, reply) => {
+    try {
+      const { type, category } = request.query;
+      const d = db.getDb();
+      let avg = 0;
+      let count = 0;
+
+      if (type === 'artifact' && category) {
+        const row = d.prepare(`
+          SELECT AVG(price) as avg_price, COUNT(*) as cnt
+          FROM artifacts WHERE category = ? AND price > 0
+        `).get(category);
+        if (row) { avg = row.avg_price || 0; count = row.cnt || 0; }
+      } else if (type === 'artifact') {
+        const row = d.prepare(`
+          SELECT AVG(price) as avg_price, COUNT(*) as cnt
+          FROM artifacts WHERE price > 0
+        `).get();
+        if (row) { avg = row.avg_price || 0; count = row.cnt || 0; }
+      } else {
+        // Default: content
+        const row = d.prepare(`
+          SELECT AVG(price) as avg_price, COUNT(*) as cnt
+          FROM content WHERE price > 0
+        `).get();
+        if (row) { avg = row.avg_price || 0; count = row.cnt || 0; }
+      }
+
+      return {
+        success: true,
+        data: {
+          averagePrice: parseFloat(avg.toFixed(6)),
+          sampleSize: count,
+          type: type || 'content',
+          category: category || null
+        },
+        error: null
+      };
     } catch (err) {
       request.log.error(err);
       return reply.code(500).send({ success: false, data: null, error: err.message });

@@ -119,7 +119,7 @@ async function run() {
       apiKey,
       autoPublish: true,
       defaultVisibility: 'private',
-      defaultPrice: 0.0001,
+      defaultPrice: 0,
       logFile: path.join(__dirname, 'cache.log'),
     };
 

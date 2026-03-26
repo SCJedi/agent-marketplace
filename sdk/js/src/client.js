@@ -71,7 +71,7 @@ class Marketplace {
    * @param {string[]} [accessOpts.authorizedKeys] - API keys to whitelist (when visibility is 'whitelist').
    * @returns {Promise<object>}
    */
-  async publishContent(url, content, price, tokenCostSaved, accessOpts = {}) {
+  async publishContent(url, content, price = 0, tokenCostSaved, accessOpts = {}) {
     const sourceHash = content.source_hash || createHash('sha256').update(url).digest('hex');
     const payload = {
       url,
@@ -196,7 +196,7 @@ class Marketplace {
    * @param {object} [opts] - Additional fields: tags, version, license, slug, visibility, authorizedKeys.
    * @returns {Promise<object>}
    */
-  async publishArtifact(name, description, category, files, price, opts = {}) {
+  async publishArtifact(name, description, category, files, price = 0, opts = {}) {
     const slug = opts.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const payload = {
       name,

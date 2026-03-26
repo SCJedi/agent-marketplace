@@ -55,7 +55,7 @@ function showHelp() {
       --max-price <price>    Maximum price to pay
 
     publish <url>          Crawl, parse, and publish a URL
-      --price <price>        Set price (default: $0.0003)
+      --price <price>        Set price (default: free)
       --visibility <vis>     Access: public | private | whitelist
       --whitelist <keys>     Comma-separated API keys (with --visibility whitelist)
 
