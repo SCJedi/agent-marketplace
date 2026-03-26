@@ -41,6 +41,23 @@ async function artifactRoutes(fastify, options) {
         }
       }
 
+      // Record publish transaction
+      try {
+        db.recordTransaction({
+          type: 'content_publish',
+          content_id: artifact ? artifact.id : null,
+          content_url: `artifact://${body.slug}`,
+          buyer_key: null,
+          seller_key: db.hashKey(apiKey),
+          listed_price: artifact ? (artifact.price || 0) : 0,
+          paid_price: 0,
+          payment_method: 'free',
+          node_id: process.env.NODE_NAME || 'local'
+        });
+      } catch (txErr) {
+        request.log.warn('Transaction recording failed:', txErr.message);
+      }
+
       return reply.code(201).send({ success: true, data: artifact, error: null });
     } catch (err) {
       request.log.error(err);
@@ -74,6 +91,22 @@ async function artifactRoutes(fastify, options) {
         return reply.code(404).send({ success: false, data: null, error: 'Artifact not found' });
       }
       db.artifactIncrementDownload(slug);
+      // Record download transaction
+      try {
+        db.recordTransaction({
+          type: 'artifact_download',
+          content_id: artifact.id,
+          content_url: `artifact://${slug}`,
+          buyer_key: db.hashKey(callerKey),
+          seller_key: db.hashKey(artifact.owner_key),
+          listed_price: artifact.price || 0,
+          paid_price: 0,
+          payment_method: 'free',
+          node_id: process.env.NODE_NAME || 'local'
+        });
+      } catch (txErr) {
+        request.log.warn('Transaction recording failed:', txErr.message);
+      }
       return { success: true, data: artifact, error: null };
     } catch (err) {
       request.log.error(err);

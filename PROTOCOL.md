@@ -987,6 +987,56 @@ Nodes advertise their supported protocol versions. Clients negotiate the highest
 
 ---
 
+## 11. Transaction Ledger
+
+Every transaction on the network is recorded in a public, pseudonymous ledger. The ledger IS the reputation system. No central authority decides who is trustworthy — trust and valuation emerge from transaction history.
+
+### What Gets Recorded
+
+Every meaningful interaction produces a transaction record:
+
+| Type | Trigger | Description |
+|------|---------|-------------|
+| `content_fetch` | `GET /fetch` returns content | An agent retrieved content from the network |
+| `content_publish` | `POST /publish/content` or dashboard publish | A provider added content to the network |
+| `artifact_download` | `GET /artifacts/:slug/download` | An agent downloaded an artifact |
+| `verification` | Verification system completes | A verification result was submitted |
+
+Each transaction records: type, content identifier, pseudonymous buyer/seller keys, listed and paid prices, payment method, payment reference, and the recording node.
+
+### Pseudonymous Key Hashing
+
+API keys are never exposed in the ledger. Instead, keys are hashed using SHA-256 and truncated to `first4...last4` format (e.g., `a3f5...d32e`). This provides:
+
+- **Correlation**: The same key always produces the same hash, so transaction patterns are visible
+- **Privacy**: The original key cannot be recovered from the hash
+- **Accountability**: Reputation accrues to the hashed identity over time
+
+### Reputation Scoring
+
+Reputation is computed from transaction history on a 0-100 scale:
+
+| Component | Points | How It's Earned |
+|-----------|--------|-----------------|
+| Volume | 0-30 | Logarithmic scale — 100 transactions = 30 points |
+| History | 0-30 | 1 point per day of activity, max 30 |
+| Diversity | 0-20 | 2 points per unique counterparty |
+| Activity | 0-20 | Bonuses for publishing, buying, selling, and dual roles |
+
+### No Central Authority
+
+The data speaks for itself. Any node can query any participant's reputation. Any node can audit the transaction history. Price discovery happens through the market, not through decree.
+
+### API Endpoints
+
+- `GET /reputation/:key` — Public reputation for any participant (by hashed key)
+- `GET /transactions` — Query the transaction ledger with filters (type, buyer, seller, date range)
+- `GET /transactions/stats` — Network-level aggregate statistics
+- `GET /transactions/volume/:period` — Transaction volume over time (day/week/month)
+- `GET /price-history?url=` — Price history for a specific URL
+
+---
+
 ## Appendix A: Artifact Categories
 
 | Category | Description | Examples |

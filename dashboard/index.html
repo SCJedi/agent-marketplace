@@ -1047,6 +1047,7 @@
       <div class="tab" data-tab="peers" onclick="showTab('peers')">Peers</div>
       <div class="tab" data-tab="search" onclick="showTab('search')">Search</div>
       <div class="tab" data-tab="share" onclick="showTab('share')">Share</div>
+      <div class="tab" data-tab="ledger" onclick="showTab('ledger')">Ledger</div>
       <div class="tab" data-tab="analytics" onclick="showTab('analytics')">Analytics</div>
       <div class="tab" data-tab="activity" onclick="showTab('activity')">Activity</div>
       <div class="tab" data-tab="settings" onclick="showTab('settings')">Settings</div>
@@ -1463,6 +1464,92 @@
         </div>
 
       </div><!-- /share-content -->
+    </div>
+
+    <!-- ─── LEDGER TAB ──────────────────── -->
+    <div class="tab-content" id="tab-ledger">
+      <h2 style="font-size:18px; margin-bottom:16px">Transaction Ledger</h2>
+
+      <!-- Reputation Summary -->
+      <div class="stat-grid" style="margin-bottom:24px">
+        <div class="stat-card">
+          <div class="stat-label">Trust Score</div>
+          <div class="stat-value" id="rep-score">--</div>
+          <div class="stat-detail" id="rep-role">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">As Provider</div>
+          <div class="stat-value" id="rep-sales">--</div>
+          <div class="stat-detail"><span id="rep-buyers">0</span> unique buyers</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">As Buyer</div>
+          <div class="stat-value" id="rep-purchases">--</div>
+          <div class="stat-detail"><span id="rep-providers">0</span> providers used</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Active Since</div>
+          <div class="stat-value" id="rep-history">--</div>
+          <div class="stat-detail" id="rep-published">-- published</div>
+        </div>
+      </div>
+
+      <!-- Transaction Stats -->
+      <div class="stat-grid" style="margin-bottom:24px">
+        <div class="stat-card">
+          <div class="stat-label">Total Transactions</div>
+          <div class="stat-value" id="tx-total">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Today</div>
+          <div class="stat-value" id="tx-today">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">This Week</div>
+          <div class="stat-value" id="tx-week">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Volume</div>
+          <div class="stat-value" id="tx-volume">$0.00</div>
+          <div class="stat-detail">all free currently</div>
+        </div>
+      </div>
+
+      <!-- Transaction Log -->
+      <div class="panel">
+        <div class="panel-header">
+          <span>Recent Transactions</span>
+          <span style="color:var(--text-muted); font-size:13px" id="tx-summary">-- transactions</span>
+        </div>
+        <div class="panel-body">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Type</th>
+                <th>Content</th>
+                <th>Buyer</th>
+                <th>Seller</th>
+                <th>Price</th>
+                <th>Method</th>
+              </tr>
+            </thead>
+            <tbody id="ledger-table-body">
+              <tr><td colspan="7" class="empty-state">No transactions recorded yet. Fetch or publish content to start recording.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Price Trends placeholder -->
+      <div class="panel">
+        <div class="panel-header">Price Trends</div>
+        <div class="panel-body padded">
+          <div id="price-trends-content" class="empty-state">
+            When the network starts transacting with prices, you'll see price history per content type, market averages, and your revenue over time.
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- ─── ACTIVITY TAB ──────────────────── -->
@@ -3306,6 +3393,80 @@
   }
 
   // ═══════════════════════════════════════════
+  //  LEDGER
+  // ═══════════════════════════════════════════
+
+  async function loadLedger() {
+    try {
+      const [ledgerRes, repRes] = await Promise.all([
+        fetch('/dashboard/api/ledger?limit=50').then(r => r.json()),
+        fetch('/dashboard/api/reputation').then(r => r.json())
+      ]);
+
+      if (repRes.success && repRes.data) {
+        const rep = repRes.data;
+        document.getElementById('rep-score').textContent = (rep.trustScore || 0) + '/100';
+        document.getElementById('rep-role').textContent = rep.role === 'both' ? 'Provider & Buyer' : (rep.role || 'Unknown');
+        document.getElementById('rep-sales').textContent = rep.asProvider ? rep.asProvider.totalSales : 0;
+        document.getElementById('rep-buyers').textContent = rep.asProvider ? rep.asProvider.uniqueBuyers : 0;
+        document.getElementById('rep-purchases').textContent = rep.asBuyer ? rep.asBuyer.totalPurchases : 0;
+        document.getElementById('rep-providers').textContent = rep.asBuyer ? rep.asBuyer.uniqueProviders : 0;
+        document.getElementById('rep-history').textContent = rep.history || 'new';
+        document.getElementById('rep-published').textContent = (rep.asProvider ? rep.asProvider.contentPublished : 0) + ' published';
+      }
+
+      if (ledgerRes.success && ledgerRes.data) {
+        const { transactions, stats } = ledgerRes.data;
+
+        // Stats
+        document.getElementById('tx-total').textContent = stats.totalTransactions || 0;
+        document.getElementById('tx-today').textContent = stats.volume ? stats.volume.today : 0;
+        document.getElementById('tx-week').textContent = stats.volume ? stats.volume.week : 0;
+        document.getElementById('tx-volume').textContent = '$' + (stats.totalVolume || 0).toFixed(4);
+        document.getElementById('tx-summary').textContent = (stats.totalTransactions || 0) + ' transactions | $' + (stats.totalVolume || 0).toFixed(2) + ' volume';
+
+        // Transaction table
+        const tbody = document.getElementById('ledger-table-body');
+        if (transactions.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No transactions recorded yet. Fetch or publish content to start recording.</td></tr>';
+        } else {
+          tbody.innerHTML = transactions.map(tx => {
+            const ago = timeAgo(tx.timestamp);
+            const typeBadge = tx.type === 'content_fetch' ? '<span class="badge public">fetch</span>'
+              : tx.type === 'content_publish' ? '<span class="badge whitelist">publish</span>'
+              : tx.type === 'artifact_download' ? '<span class="badge public">download</span>'
+              : '<span class="badge">' + escapeHtml(tx.type) + '</span>';
+            const url = tx.content_url ? truncate(tx.content_url.replace(/^(file:\/\/\/|text:\/\/|artifact:\/\/)/, ''), 30) : '--';
+            const price = tx.paid_price > 0 ? '$' + tx.paid_price.toFixed(4) : 'Free';
+            return `<tr>
+              <td title="${escapeHtml(tx.timestamp)}">${ago}</td>
+              <td>${typeBadge}</td>
+              <td title="${escapeHtml(tx.content_url || '')}">${escapeHtml(url)}</td>
+              <td><code style="font-size:12px">${escapeHtml(tx.buyer || 'anonymous')}</code></td>
+              <td><code style="font-size:12px">${escapeHtml(tx.seller || 'anonymous')}</code></td>
+              <td>${price}</td>
+              <td>${tx.payment_method || '--'}</td>
+            </tr>`;
+          }).join('');
+        }
+      }
+    } catch (e) {
+      console.error('Ledger load error:', e);
+    }
+  }
+
+  function timeAgo(ts) {
+    if (!ts) return '--';
+    const now = Date.now();
+    const then = new Date(ts + (ts.includes('Z') ? '' : 'Z')).getTime();
+    const diff = Math.floor((now - then) / 1000);
+    if (diff < 60) return diff + 's ago';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    return Math.floor(diff / 86400) + 'd ago';
+  }
+
+  // ═══════════════════════════════════════════
   //  TABS
   // ═══════════════════════════════════════════
 
@@ -3322,6 +3483,7 @@
     if (tabName === 'content') loadContent();
     if (tabName === 'peers') loadPeers();
     if (tabName === 'share') loadNetworkInfo();
+    if (tabName === 'ledger') loadLedger();
     if (tabName === 'analytics') { loadAnalytics(); startAnalyticsPolling(); }
     if (tabName === 'activity') loadActivity();
     if (tabName === 'settings') { loadConfig(); loadKeys(); }

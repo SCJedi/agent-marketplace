@@ -52,6 +52,7 @@ async function build(options = {}) {
   await app.register(require('./routes/verify'));
   await app.register(require('./routes/nodes'));
   await app.register(require('./routes/dashboard'));
+  await app.register(require('./routes/reputation'));
 
   // Peer discovery — start after server is listening
   const selfEndpoint = process.env.PUBLIC_URL || `http://localhost:${PORT}`;

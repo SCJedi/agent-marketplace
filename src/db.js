@@ -181,6 +181,28 @@ function initTables() {
       discovered_from TEXT,
       added_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS transactions (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      content_id TEXT,
+      content_url TEXT,
+      buyer_key TEXT,
+      seller_key TEXT,
+      listed_price REAL DEFAULT 0,
+      paid_price REAL DEFAULT 0,
+      payment_method TEXT,
+      payment_ref TEXT,
+      metadata TEXT,
+      timestamp TEXT DEFAULT (datetime('now')),
+      node_id TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);
+    CREATE INDEX IF NOT EXISTS idx_transactions_buyer ON transactions(buyer_key);
+    CREATE INDEX IF NOT EXISTS idx_transactions_seller ON transactions(seller_key);
+    CREATE INDEX IF NOT EXISTS idx_transactions_content ON transactions(content_id);
+    CREATE INDEX IF NOT EXISTS idx_transactions_timestamp ON transactions(timestamp);
   `);
 
   // ── Migrations for older databases ──
@@ -927,6 +949,227 @@ function getContentById(id) {
   return getDb().prepare('SELECT * FROM content WHERE id = ?').get(id) || null;
 }
 
+// --- Transaction Ledger ---
+
+function hashKey(key) {
+  if (!key) return 'anonymous';
+  const hash = crypto.createHash('sha256').update(key).digest('hex');
+  return hash.substring(0, 4) + '...' + hash.substring(hash.length - 4);
+}
+
+function recordTransaction(txData) {
+  const d = getDb();
+  const { v4: uuidv4 } = require('uuid');
+  const id = txData.id || uuidv4();
+  d.prepare(`
+    INSERT INTO transactions (id, type, content_id, content_url, buyer_key, seller_key, listed_price, paid_price, payment_method, payment_ref, metadata, node_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    txData.type,
+    txData.content_id || null,
+    txData.content_url || null,
+    txData.buyer_key || null,
+    txData.seller_key || null,
+    txData.listed_price || 0,
+    txData.paid_price || 0,
+    txData.payment_method || 'free',
+    txData.payment_ref || null,
+    typeof txData.metadata === 'object' ? JSON.stringify(txData.metadata) : (txData.metadata || null),
+    txData.node_id || null
+  );
+  return d.prepare(`SELECT * FROM transactions WHERE id = ?`).get(id);
+}
+
+function getTransactions(filters = {}) {
+  const d = getDb();
+  let sql = `SELECT * FROM transactions WHERE 1=1`;
+  const params = [];
+
+  if (filters.type) { sql += ` AND type = ?`; params.push(filters.type); }
+  if (filters.buyer) { sql += ` AND buyer_key = ?`; params.push(filters.buyer); }
+  if (filters.seller) { sql += ` AND seller_key = ?`; params.push(filters.seller); }
+  if (filters.content_id) { sql += ` AND content_id = ?`; params.push(filters.content_id); }
+  if (filters.content_url) { sql += ` AND content_url = ?`; params.push(filters.content_url); }
+  if (filters.from_date) { sql += ` AND timestamp >= ?`; params.push(filters.from_date); }
+  if (filters.to_date) { sql += ` AND timestamp <= ?`; params.push(filters.to_date); }
+
+  sql += ` ORDER BY timestamp DESC`;
+  if (filters.limit) { sql += ` LIMIT ?`; params.push(parseInt(filters.limit, 10)); }
+
+  return d.prepare(sql).all(...params);
+}
+
+function getProviderStats(sellerKey) {
+  const d = getDb();
+  const sales = d.prepare(`SELECT COUNT(*) as cnt, SUM(paid_price) as revenue FROM transactions WHERE seller_key = ? AND type IN ('content_fetch', 'artifact_download')`).get(sellerKey);
+  const uniqueBuyers = d.prepare(`SELECT COUNT(DISTINCT buyer_key) as cnt FROM transactions WHERE seller_key = ? AND type IN ('content_fetch', 'artifact_download')`).get(sellerKey);
+  const published = d.prepare(`SELECT COUNT(*) as cnt FROM transactions WHERE seller_key = ? AND type = 'content_publish'`).get(sellerKey);
+  const firstTx = d.prepare(`SELECT MIN(timestamp) as first_seen FROM transactions WHERE seller_key = ?`).get(sellerKey);
+
+  return {
+    totalSales: sales ? sales.cnt : 0,
+    totalRevenue: sales ? (sales.revenue || 0) : 0,
+    uniqueBuyers: uniqueBuyers ? uniqueBuyers.cnt : 0,
+    contentPublished: published ? published.cnt : 0,
+    firstSeen: firstTx ? firstTx.first_seen : null
+  };
+}
+
+function getBuyerStats(buyerKey) {
+  const d = getDb();
+  const purchases = d.prepare(`SELECT COUNT(*) as cnt, SUM(paid_price) as spent FROM transactions WHERE buyer_key = ? AND type IN ('content_fetch', 'artifact_download')`).get(buyerKey);
+  const uniqueProviders = d.prepare(`SELECT COUNT(DISTINCT seller_key) as cnt FROM transactions WHERE buyer_key = ? AND type IN ('content_fetch', 'artifact_download')`).get(buyerKey);
+  const firstTx = d.prepare(`SELECT MIN(timestamp) as first_seen FROM transactions WHERE buyer_key = ?`).get(buyerKey);
+
+  return {
+    totalPurchases: purchases ? purchases.cnt : 0,
+    totalSpent: purchases ? (purchases.spent || 0) : 0,
+    uniqueProviders: uniqueProviders ? uniqueProviders.cnt : 0,
+    firstSeen: firstTx ? firstTx.first_seen : null
+  };
+}
+
+function getContentStats(contentId) {
+  const d = getDb();
+  const fetches = d.prepare(`SELECT COUNT(*) as cnt FROM transactions WHERE content_id = ? AND type = 'content_fetch'`).get(contentId);
+  const buyers = d.prepare(`SELECT DISTINCT buyer_key FROM transactions WHERE content_id = ? AND type = 'content_fetch'`).all(contentId);
+  const prices = d.prepare(`SELECT listed_price, paid_price, timestamp FROM transactions WHERE content_id = ? ORDER BY timestamp DESC`).all(contentId);
+
+  return {
+    fetchCount: fetches ? fetches.cnt : 0,
+    uniqueBuyers: buyers.map(b => b.buyer_key),
+    priceHistory: prices
+  };
+}
+
+function getReputationScore(key) {
+  const d = getDb();
+  // Compute reputation from: transaction volume, history length, consistency
+  const providerStats = getProviderStats(key);
+  const buyerStats = getBuyerStats(key);
+
+  const totalTx = providerStats.totalSales + providerStats.contentPublished + buyerStats.totalPurchases;
+  const firstSeen = providerStats.firstSeen || buyerStats.firstSeen;
+
+  // Volume score: 0-30 points (log scale, 100 tx = 30 points)
+  const volumeScore = Math.min(30, Math.round(Math.log2(totalTx + 1) * 4.5));
+
+  // History score: 0-30 points (1 point per day active, max 30)
+  let historyScore = 0;
+  if (firstSeen) {
+    const daysSinceFirst = (Date.now() - new Date(firstSeen).getTime()) / (1000 * 60 * 60 * 24);
+    historyScore = Math.min(30, Math.round(daysSinceFirst));
+  }
+
+  // Diversity score: 0-20 points (unique counterparties)
+  const diversityCount = providerStats.uniqueBuyers + buyerStats.uniqueProviders;
+  const diversityScore = Math.min(20, diversityCount * 2);
+
+  // Activity score: 0-20 points (published content + being both buyer and seller)
+  let activityScore = 0;
+  if (providerStats.totalSales > 0) activityScore += 5;
+  if (buyerStats.totalPurchases > 0) activityScore += 5;
+  if (providerStats.contentPublished > 0) activityScore += 5;
+  if (providerStats.totalSales > 0 && buyerStats.totalPurchases > 0) activityScore += 5; // dual role bonus
+
+  const totalScore = Math.min(100, volumeScore + historyScore + diversityScore + activityScore);
+
+  // Determine role
+  let role = 'unknown';
+  if (providerStats.totalSales > 0 && buyerStats.totalPurchases > 0) role = 'both';
+  else if (providerStats.totalSales > 0 || providerStats.contentPublished > 0) role = 'provider';
+  else if (buyerStats.totalPurchases > 0) role = 'buyer';
+
+  // Human-readable history
+  let historyLabel = 'new';
+  if (firstSeen) {
+    const days = (Date.now() - new Date(firstSeen).getTime()) / (1000 * 60 * 60 * 24);
+    if (days < 1) historyLabel = 'less than a day';
+    else if (days < 7) historyLabel = Math.floor(days) + ' days active';
+    else if (days < 30) historyLabel = Math.floor(days / 7) + '+ weeks active';
+    else historyLabel = Math.floor(days / 30) + '+ months active';
+  }
+
+  return {
+    key,
+    role,
+    firstSeen,
+    totalTransactions: totalTx,
+    asProvider: providerStats,
+    asBuyer: buyerStats,
+    trustScore: totalScore,
+    history: historyLabel
+  };
+}
+
+function getTransactionVolume(period) {
+  const d = getDb();
+  let groupBy, where;
+  if (period === 'day') {
+    groupBy = `date(timestamp)`;
+    where = `timestamp >= datetime('now', '-30 days')`;
+  } else if (period === 'week') {
+    groupBy = `strftime('%Y-W%W', timestamp)`;
+    where = `timestamp >= datetime('now', '-90 days')`;
+  } else {
+    groupBy = `strftime('%Y-%m', timestamp)`;
+    where = `timestamp >= datetime('now', '-365 days')`;
+  }
+
+  return d.prepare(`
+    SELECT ${groupBy} as period, COUNT(*) as count, SUM(paid_price) as volume
+    FROM transactions WHERE ${where}
+    GROUP BY ${groupBy} ORDER BY period ASC
+  `).all();
+}
+
+function getPriceHistory(contentUrl) {
+  const d = getDb();
+  return d.prepare(`
+    SELECT listed_price, paid_price, payment_method, timestamp
+    FROM transactions WHERE content_url = ?
+    ORDER BY timestamp ASC
+  `).all(contentUrl);
+}
+
+function getTransactionStats() {
+  const d = getDb();
+  const total = d.prepare(`SELECT COUNT(*) as cnt FROM transactions`).get();
+  const totalVolume = d.prepare(`SELECT SUM(paid_price) as vol FROM transactions`).get();
+  const avgPrice = d.prepare(`SELECT AVG(listed_price) as avg FROM transactions WHERE listed_price > 0`).get();
+  const activeProviders = d.prepare(`SELECT COUNT(DISTINCT seller_key) as cnt FROM transactions WHERE seller_key != 'anonymous'`).get();
+  const activeBuyers = d.prepare(`SELECT COUNT(DISTINCT buyer_key) as cnt FROM transactions WHERE buyer_key != 'anonymous'`).get();
+  const today = d.prepare(`SELECT COUNT(*) as cnt FROM transactions WHERE timestamp >= date('now')`).get();
+  const thisWeek = d.prepare(`SELECT COUNT(*) as cnt FROM transactions WHERE timestamp >= datetime('now', '-7 days')`).get();
+  const thisMonth = d.prepare(`SELECT COUNT(*) as cnt FROM transactions WHERE timestamp >= datetime('now', '-30 days')`).get();
+
+  const topProviders = d.prepare(`
+    SELECT seller_key, COUNT(*) as tx_count, SUM(paid_price) as revenue
+    FROM transactions WHERE seller_key != 'anonymous'
+    GROUP BY seller_key ORDER BY tx_count DESC LIMIT 10
+  `).all();
+
+  return {
+    totalTransactions: total ? total.cnt : 0,
+    totalVolume: totalVolume ? (totalVolume.vol || 0) : 0,
+    avgPrice: avgPrice ? (avgPrice.avg || 0) : 0,
+    activeProviders: activeProviders ? activeProviders.cnt : 0,
+    activeBuyers: activeBuyers ? activeBuyers.cnt : 0,
+    topProviders,
+    volume: {
+      today: today ? today.cnt : 0,
+      week: thisWeek ? thisWeek.cnt : 0,
+      month: thisMonth ? thisMonth.cnt : 0
+    }
+  };
+}
+
+function getRecentTransactions(limit = 50) {
+  const d = getDb();
+  return d.prepare(`SELECT * FROM transactions ORDER BY timestamp DESC LIMIT ?`).all(limit);
+}
+
 function closeDb() {
   if (db) { db.close(); db = null; }
 }
@@ -954,11 +1197,15 @@ module.exports = {
   // Auth
   validateApiKey,
   // Utilities
-  normalizeForHash,
+  normalizeForHash, hashKey,
   // Whitelist / Access control
   addContentWhitelist, removeContentWhitelist, getContentWhitelist, getContentById,
   addArtifactWhitelist, removeArtifactWhitelist, getArtifactWhitelist, getArtifactById,
   // Peers (P2P Discovery)
   addPeer, removePeer, getPeers, getAllPeers, getPeerByEndpoint,
-  updatePeerSeen, updatePeerAnnounced, incrementPeerFailure, getPeerCount
+  updatePeerSeen, updatePeerAnnounced, incrementPeerFailure, getPeerCount,
+  // Transaction Ledger
+  recordTransaction, getTransactions, getProviderStats, getBuyerStats,
+  getContentStats, getReputationScore, getTransactionVolume, getPriceHistory,
+  getTransactionStats, getRecentTransactions
 };

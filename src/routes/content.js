@@ -2,6 +2,7 @@
 
 const db = require('../db');
 const { apiKeyAuth } = require('../middleware/auth');
+const crypto = require('crypto');
 
 async function contentRoutes(fastify, options) {
   // GET /check?url= — check if clean version exists (filtered by caller's access)
@@ -31,6 +32,22 @@ async function contentRoutes(fastify, options) {
       const record = db.contentFetch(url, callerKey);
       if (!record) {
         return reply.code(404).send({ success: false, data: null, error: 'Content not found for this URL' });
+      }
+      // Record transaction
+      try {
+        db.recordTransaction({
+          type: 'content_fetch',
+          content_id: record.id,
+          content_url: record.url,
+          buyer_key: db.hashKey(request.headers['x-api-key']),
+          seller_key: db.hashKey(record.owner_key),
+          listed_price: record.price || 0,
+          paid_price: 0,
+          payment_method: 'free',
+          node_id: process.env.NODE_NAME || 'local'
+        });
+      } catch (txErr) {
+        request.log.warn('Transaction recording failed:', txErr.message);
       }
       // Include content_hash for integrity verification by agents
       return { success: true, data: record, error: null };
@@ -165,6 +182,23 @@ async function contentRoutes(fastify, options) {
         if (firstHourCount > 50) {
           db.nodeFlag(providerId, `high_volume_first_hour: ${firstHourCount} items`);
         }
+      }
+
+      // Record publish transaction
+      try {
+        db.recordTransaction({
+          type: 'content_publish',
+          content_id: record ? record.id : null,
+          content_url: body.url,
+          buyer_key: null,
+          seller_key: db.hashKey(apiKey),
+          listed_price: record ? (record.price || 0) : 0,
+          paid_price: 0,
+          payment_method: 'free',
+          node_id: process.env.NODE_NAME || 'local'
+        });
+      } catch (txErr) {
+        request.log.warn('Transaction recording failed:', txErr.message);
       }
 
       return reply.code(201).send({ success: true, data: record, error: null });

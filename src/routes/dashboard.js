@@ -392,6 +392,22 @@ async function dashboardRoutes(fastify, options) {
 
       logActivity('publish', `Published: ${parsedUrl.href}`);
 
+      // Record publish transaction
+      try {
+        db.recordTransaction({
+          type: 'content_publish',
+          content_id: record ? record.id : null,
+          content_url: parsedUrl.href,
+          seller_key: db.hashKey(null),
+          listed_price: parseFloat(price) || 0,
+          paid_price: 0,
+          payment_method: 'free',
+          node_id: process.env.NODE_NAME || 'local'
+        });
+      } catch (txErr) {
+        // Non-critical — don't fail the publish
+      }
+
       return reply.code(201).send({ success: true, data: record, error: null });
     } catch (err) {
       request.log.error(err);
@@ -592,6 +608,20 @@ async function dashboardRoutes(fastify, options) {
       });
 
       logActivity('publish-file', `Published file: ${basename}`);
+
+      try {
+        db.recordTransaction({
+          type: 'content_publish',
+          content_id: record ? record.id : null,
+          content_url: fileUrl,
+          seller_key: db.hashKey(ownerKey),
+          listed_price: 0,
+          paid_price: 0,
+          payment_method: 'free',
+          node_id: process.env.NODE_NAME || 'local'
+        });
+      } catch (txErr) { /* non-critical */ }
+
       return reply.code(201).send({ success: true, data: record, error: null });
     } catch (err) {
       request.log.error(err);
@@ -629,6 +659,20 @@ async function dashboardRoutes(fastify, options) {
       });
 
       logActivity('publish-text', `Published text: ${cleanTitle}`);
+
+      try {
+        db.recordTransaction({
+          type: 'content_publish',
+          content_id: record ? record.id : null,
+          content_url: fileUrl,
+          seller_key: db.hashKey(null),
+          listed_price: 0,
+          paid_price: 0,
+          payment_method: 'free',
+          node_id: process.env.NODE_NAME || 'local'
+        });
+      } catch (txErr) { /* non-critical */ }
+
       return reply.code(201).send({ success: true, data: record, error: null });
     } catch (err) {
       request.log.error(err);
@@ -1256,6 +1300,69 @@ async function dashboardRoutes(fastify, options) {
       // Don't log peer protocol chatter
     }
     done();
+  });
+
+  // ── Ledger Dashboard API ──
+
+  // GET /dashboard/api/ledger — recent transactions for dashboard
+  fastify.get('/dashboard/api/ledger', async (request, reply) => {
+    try {
+      const limit = parseInt(request.query.limit, 10) || 50;
+      const transactions = db.getRecentTransactions(limit);
+      const stats = db.getTransactionStats();
+
+      const publicTx = transactions.map(tx => ({
+        id: tx.id,
+        type: tx.type,
+        content_url: tx.content_url,
+        buyer: tx.buyer_key || 'anonymous',
+        seller: tx.seller_key || 'anonymous',
+        listed_price: tx.listed_price,
+        paid_price: tx.paid_price,
+        payment_method: tx.payment_method,
+        timestamp: tx.timestamp,
+        node: tx.node_id
+      }));
+
+      return {
+        success: true,
+        data: { transactions: publicTx, stats },
+        error: null
+      };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
+  // GET /dashboard/api/reputation — this node's reputation
+  fastify.get('/dashboard/api/reputation', async (request, reply) => {
+    try {
+      const d = db.getDb();
+      // Get the first API key as this node's identity
+      const keys = d.prepare('SELECT * FROM api_keys LIMIT 1').all();
+      if (keys.length === 0) {
+        return {
+          success: true,
+          data: {
+            key: 'not-configured',
+            role: 'unknown',
+            totalTransactions: 0,
+            trustScore: 0,
+            asProvider: { totalSales: 0, totalRevenue: 0, uniqueBuyers: 0, contentPublished: 0, firstSeen: null },
+            asBuyer: { totalPurchases: 0, totalSpent: 0, uniqueProviders: 0, firstSeen: null },
+            history: 'new'
+          },
+          error: null
+        };
+      }
+      const hashedKey = db.hashKey(keys[0].key);
+      const reputation = db.getReputationScore(hashedKey);
+      return { success: true, data: reputation, error: null };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
   });
 }
 
