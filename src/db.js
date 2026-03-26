@@ -905,6 +905,28 @@ function getPeerCount() {
   return result ? result.cnt : 0;
 }
 
+function contentUpdate(id, updates, callerKey) {
+  const d = getDb();
+  // Only owner can update
+  const row = d.prepare('SELECT * FROM content WHERE id = ?').get(id);
+  if (!row) return null;
+  if (callerKey && row.owner_key && row.owner_key !== callerKey) return null;
+
+  const fields = [];
+  const params = [];
+  if (updates.price !== undefined) { fields.push('price = ?'); params.push(updates.price); }
+  if (updates.visibility !== undefined) { fields.push('visibility = ?'); params.push(updates.visibility); }
+  if (fields.length === 0) return row;
+
+  params.push(id);
+  d.prepare(`UPDATE content SET ${fields.join(', ')} WHERE id = ?`).run(...params);
+  return d.prepare('SELECT * FROM content WHERE id = ?').get(id);
+}
+
+function getContentById(id) {
+  return getDb().prepare('SELECT * FROM content WHERE id = ?').get(id) || null;
+}
+
 function closeDb() {
   if (db) { db.close(); db = null; }
 }
@@ -912,7 +934,7 @@ function closeDb() {
 module.exports = {
   getDb, closeDb,
   // Content
-  contentCheck, contentFetch, contentPublish, contentPublishWithHash,
+  contentCheck, contentFetch, contentPublish, contentPublishWithHash, contentUpdate, getContentById,
   // Content verification
   getContentHashesForUrl, checkContentHashDivergence, flagContent, getProviderFlagCount, getAllProvidersForUrl,
   // Artifacts

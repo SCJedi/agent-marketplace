@@ -530,6 +530,28 @@ async function dashboardRoutes(fastify, options) {
     }
   });
 
+  // PATCH /dashboard/api/content/:id — update price or visibility
+  fastify.patch('/dashboard/api/content/:id', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const { price, visibility } = request.body || {};
+      const updates = {};
+      if (price !== undefined) updates.price = parseFloat(price);
+      if (visibility !== undefined) updates.visibility = visibility;
+
+      const result = db.contentUpdate(id, updates, null);
+      if (!result) {
+        return reply.code(404).send({ success: false, data: null, error: 'Content not found' });
+      }
+
+      logActivity('update', `Updated content: price=${updates.price}, visibility=${updates.visibility}`);
+      return { success: true, data: result, error: null };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ success: false, data: null, error: err.message });
+    }
+  });
+
   // POST /dashboard/api/publish-file — publish local file content directly (for GUI upload)
   fastify.post('/dashboard/api/publish-file', async (request, reply) => {
     try {
