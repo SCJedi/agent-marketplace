@@ -44,6 +44,11 @@ async function build(options = {}) {
     };
   });
 
+  // Root redirect to dashboard
+  app.get('/', async (request, reply) => {
+    return reply.redirect('/dashboard');
+  });
+
   // Register route modules
   await app.register(require('./routes/content'));
   await app.register(require('./routes/artifacts'));
