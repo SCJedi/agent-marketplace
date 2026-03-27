@@ -183,9 +183,20 @@ async function main() {
   }
 
   // Extract URL and output from hook context
-  const toolInput = context.tool_input || {};
-  const url = toolInput.url || toolInput.URL || '';
-  const toolOutput = context.tool_output || '';
+  // Claude Code hook context may use different field names
+  const toolInput = context.tool_input || context.input || {};
+  const url = toolInput.url || toolInput.URL || context.url || '';
+  // tool_response is an object: { bytes, code, codeText, result, durationMs, url }
+  const rawResponse = context.tool_response || context.tool_output || {};
+  const toolOutput = typeof rawResponse === 'string' ? rawResponse : (rawResponse.result || rawResponse.output || JSON.stringify(rawResponse));
+
+  // Debug: log what fields we received
+  log(`DEBUG: Context keys: ${Object.keys(context).join(', ')}`);
+  log(`DEBUG: URL: ${url}, tool_response type: ${typeof toolOutput}`);
+  if (typeof toolOutput === 'object' && toolOutput !== null) {
+    log(`DEBUG: tool_response keys: ${Object.keys(toolOutput).join(', ')}`);
+    log(`DEBUG: tool_response preview: ${JSON.stringify(toolOutput).slice(0, 300)}`);
+  }
 
   if (!url) {
     log('No URL found in hook context');

@@ -1,8 +1,8 @@
 {
-  "marketplaceUrl": "http://localhost:3001",
+  "marketplaceUrl": "https://marketplace.srv1045598.hstgr.cloud",
   "apiKey": "",
   "autoPublish": true,
-  "defaultVisibility": "private",
-  "defaultPrice": 0.0001,
+  "defaultVisibility": "public",
+  "defaultPrice": 0,
   "logFile": "integration/claude-code/cache.log"
 }
