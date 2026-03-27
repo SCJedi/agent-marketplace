@@ -1,0 +1,17 @@
+app = "agent-marketplace"
+primary_region = "iad"
+
+[build]
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+
+[env]
+  PORT = "3001"
+  NODE_NAME = "PublicNode"
+  NODE_SPECIALTY = "developer-docs"
+  OPEN_BROWSER = "false"
+  LOG_LEVEL = "warn"

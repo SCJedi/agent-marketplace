@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-marketplace"
+version = "1.0.0"
+description = "SDK for the Agent Marketplace — cached developer docs and AI content"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.8"
+dependencies = ["requests>=2.28.0"]
+keywords = ["ai", "agents", "marketplace", "cache", "developer-docs", "llm"]
+authors = [
+    {name = "SCJedi"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Internet :: WWW/HTTP",
+]
+
+[project.urls]
+Homepage = "https://github.com/SCJedi/agent-marketplace"
+Documentation = "https://github.com/SCJedi/agent-marketplace#quick-start"
+Repository = "https://github.com/SCJedi/agent-marketplace"
+Issues = "https://github.com/SCJedi/agent-marketplace/issues"
