@@ -11,6 +11,30 @@ const db = require('../db');
 const CONFIG_PATH = process.env.DASHBOARD_CONFIG || path.join(__dirname, '..', '..', 'data', 'dashboard-config.json');
 const DUCKDNS_CONFIG_PATH = path.join(path.dirname(CONFIG_PATH), 'duckdns-config.json');
 
+// Dashboard password — set via env var or auto-generated on first run
+const DASH_PASSWORD_FILE = path.join(path.dirname(CONFIG_PATH), 'dashboard-password.json');
+
+function getDashboardPassword() {
+  // 1. Check env var
+  if (process.env.DASHBOARD_PASSWORD) return process.env.DASHBOARD_PASSWORD;
+  // 2. Check saved password file
+  try {
+    const saved = JSON.parse(fs.readFileSync(DASH_PASSWORD_FILE, 'utf8'));
+    if (saved.password) return saved.password;
+  } catch (e) { /* no saved password */ }
+  // 3. Auto-generate and save
+  const password = crypto.randomBytes(12).toString('base64url');
+  try {
+    const dir = path.dirname(DASH_PASSWORD_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(DASH_PASSWORD_FILE, JSON.stringify({ password, createdAt: new Date().toISOString() }));
+  } catch (e) { /* best effort */ }
+  console.log(`\n  Dashboard password (auto-generated): ${password}\n`);
+  return password;
+}
+
+const dashboardPassword = getDashboardPassword();
+
 // ── Network info cache ──
 let cachedPublicIp = null;
 let publicIpFetchedAt = 0;
@@ -161,6 +185,40 @@ function logActivity(type, detail) {
 }
 
 async function dashboardRoutes(fastify, options) {
+  // Auth check for dashboard — token-based via query param or header
+  // The dashboard HTML is served with a login page if not authenticated
+  function checkDashAuth(request, reply) {
+    // Allow unauthenticated access to the login endpoint
+    if (request.url === '/dashboard/api/login') return;
+    // Check for auth token in header or query
+    const token = request.headers['x-dashboard-token'] || request.query._token;
+    if (token === dashboardPassword) return;
+    // No token or wrong token — reject API calls
+    if (request.url.startsWith('/dashboard/api/')) {
+      reply.code(401).send({ success: false, data: null, error: 'Dashboard password required' });
+      return reply;
+    }
+  }
+
+  // Add auth check to all dashboard API routes
+  fastify.addHook('preHandler', async (request, reply) => {
+    if (request.url.startsWith('/dashboard/api/') && request.url !== '/dashboard/api/login') {
+      const token = request.headers['x-dashboard-token'] || request.query._token;
+      if (token !== dashboardPassword) {
+        return reply.code(401).send({ success: false, data: null, error: 'Dashboard password required' });
+      }
+    }
+  });
+
+  // Login endpoint — validates password, returns token
+  fastify.post('/dashboard/api/login', async (request, reply) => {
+    const { password } = request.body || {};
+    if (password === dashboardPassword) {
+      return { success: true, data: { token: dashboardPassword }, error: null };
+    }
+    return reply.code(401).send({ success: false, data: null, error: 'Wrong password' });
+  });
+
   // Serve the dashboard HTML
   fastify.get('/dashboard', async (request, reply) => {
     const htmlPath = path.join(__dirname, '..', '..', 'dashboard', 'index.html');

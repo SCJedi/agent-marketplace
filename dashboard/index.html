@@ -2050,6 +2050,76 @@
 
   let pollTimer = null;
   const API = '/dashboard/api';
+  let dashToken = localStorage.getItem('dashboard_token') || '';
+
+  // Authenticated fetch — adds token header
+  function authFetch(url, opts = {}) {
+    opts.headers = opts.headers || {};
+    if (dashToken) opts.headers['x-dashboard-token'] = dashToken;
+    return fetch(url, opts);
+  }
+
+  // ═══════════════════════════════════════════
+  //  LOGIN
+  // ═══════════════════════════════════════════
+
+  function showLogin(msg) {
+    document.getElementById('wizard').classList.add('hidden');
+    document.getElementById('dashboard').classList.remove('visible');
+    let loginEl = document.getElementById('login-screen');
+    if (!loginEl) {
+      loginEl = document.createElement('div');
+      loginEl.id = 'login-screen';
+      loginEl.innerHTML = `
+        <div style="max-width:400px;margin:100px auto;padding:32px;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);">
+          <h2 style="margin-bottom:8px;">Dashboard Login</h2>
+          <p style="color:var(--text-muted);margin-bottom:20px;">Enter your dashboard password to continue.</p>
+          <div id="login-error" style="color:var(--red);margin-bottom:12px;display:none;"></div>
+          <input type="password" id="login-password" placeholder="Password"
+            style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);margin-bottom:16px;font-size:14px;"
+            onkeydown="if(event.key==='Enter')doLogin()">
+          <button onclick="doLogin()" class="btn btn-primary" style="width:100%;">Login</button>
+          <p style="color:var(--text-muted);font-size:12px;margin-top:16px;">
+            Password is shown in the server terminal when it starts.<br>
+            Set DASHBOARD_PASSWORD env var to choose your own.
+          </p>
+        </div>`;
+      document.body.appendChild(loginEl);
+    }
+    loginEl.style.display = 'block';
+    if (msg) {
+      const errEl = document.getElementById('login-error');
+      errEl.textContent = msg;
+      errEl.style.display = 'block';
+    }
+    setTimeout(() => document.getElementById('login-password')?.focus(), 100);
+  }
+
+  async function doLogin() {
+    const pw = document.getElementById('login-password').value;
+    try {
+      const resp = await fetch(API + '/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw })
+      });
+      const data = await resp.json();
+      if (data.success) {
+        dashToken = data.data.token;
+        localStorage.setItem('dashboard_token', dashToken);
+        document.getElementById('login-screen').style.display = 'none';
+        init();
+      } else {
+        const errEl = document.getElementById('login-error');
+        errEl.textContent = 'Wrong password';
+        errEl.style.display = 'block';
+      }
+    } catch (e) {
+      const errEl = document.getElementById('login-error');
+      errEl.textContent = 'Connection error';
+      errEl.style.display = 'block';
+    }
+  }
 
   // ═══════════════════════════════════════════
   //  INIT
@@ -2057,7 +2127,11 @@
 
   async function init() {
     try {
-      const resp = await fetch(API + '/status');
+      const resp = await authFetch(API + '/status');
+      if (resp.status === 401) {
+        showLogin();
+        return;
+      }
       const data = await resp.json();
       if (data.success && data.data.configured) {
         showDashboard(data.data);
@@ -2065,7 +2139,7 @@
         showWizard();
       }
     } catch (e) {
-      showWizard();
+      showLogin('Cannot connect to server');
     }
   }
 
@@ -2118,7 +2192,7 @@
     btn.textContent = 'Setting up...';
 
     try {
-      const resp = await fetch(API + '/setup', {
+      const resp = await authFetch(API + '/setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nodeName: name, specialty, seedPeer })
@@ -2172,7 +2246,7 @@
 
   async function refreshStatus() {
     try {
-      const resp = await fetch(API + '/status');
+      const resp = await authFetch(API + '/status');
       const data = await resp.json();
       if (data.success) updateStatus(data.data);
     } catch (e) { /* silent */ }
@@ -2212,7 +2286,7 @@
 
   async function loadContent() {
     try {
-      const resp = await fetch(API + '/content?limit=50');
+      const resp = await authFetch(API + '/content?limit=50');
       const data = await resp.json();
       if (!data.success) return;
 
@@ -2236,7 +2310,7 @@
         // Fetch verification statuses for badges
         let verifyStatuses = {};
         try {
-          const vResp = await fetch(API + '/verify/content-status');
+          const vResp = await authFetch(API + '/verify/content-status');
           const vData = await vResp.json();
           if (vData.success) verifyStatuses = vData.data;
         } catch (e) { /* silent */ }
@@ -2327,7 +2401,7 @@
     if (newVis === null) return;
     const visibility = visOptions.includes(newVis) ? newVis : currentVisibility;
 
-    fetch(API + '/content/' + id, {
+    authFetch(API + '/content/' + id, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ price, visibility })
@@ -2347,7 +2421,7 @@
   async function deleteContent(id) {
     if (!confirm('Delete this content?')) return;
     try {
-      const resp = await fetch(API + '/content/' + id, { method: 'DELETE' });
+      const resp = await authFetch(API + '/content/' + id, { method: 'DELETE' });
       const data = await resp.json();
       if (data.success) {
         loadContent();
@@ -2368,7 +2442,7 @@
 
   async function loadPeers() {
     try {
-      const resp = await fetch(API + '/peers');
+      const resp = await authFetch(API + '/peers');
       const data = await resp.json();
       if (!data.success) return;
 
@@ -2411,7 +2485,7 @@
 
   async function loadActivity() {
     try {
-      const resp = await fetch(API + '/activity?limit=50');
+      const resp = await authFetch(API + '/activity?limit=50');
       const data = await resp.json();
       if (!data.success) return;
 
@@ -2444,7 +2518,7 @@
     body.innerHTML = '<div class="loading-overlay"><div class="spinner"></div> Searching...</div>';
 
     try {
-      const resp = await fetch(API + '/search?q=' + encodeURIComponent(q));
+      const resp = await authFetch(API + '/search?q=' + encodeURIComponent(q));
       const data = await resp.json();
 
       if (!data.success) {
@@ -2508,7 +2582,7 @@
     btn.textContent = 'Publishing...';
 
     try {
-      const resp = await fetch(API + '/publish', {
+      const resp = await authFetch(API + '/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url, visibility, price })
@@ -2568,7 +2642,7 @@
     btn.textContent = 'Connecting...';
 
     try {
-      const resp = await fetch(API + '/add-peer', {
+      const resp = await authFetch(API + '/add-peer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ endpoint })
@@ -2605,7 +2679,7 @@
 
   async function loadConfig() {
     try {
-      const resp = await fetch(API + '/config');
+      const resp = await authFetch(API + '/config');
       const data = await resp.json();
       if (data.success && data.data) {
         document.getElementById('cfg-name').value = data.data.nodeName || '';
@@ -2619,7 +2693,7 @@
     const specialty = document.getElementById('cfg-specialty').value;
 
     try {
-      const resp = await fetch(API + '/config', {
+      const resp = await authFetch(API + '/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nodeName, specialty })
@@ -2636,7 +2710,7 @@
 
   async function loadKeys() {
     try {
-      const resp = await fetch(API + '/keys');
+      const resp = await authFetch(API + '/keys');
       const data = await resp.json();
       if (!data.success) return;
 
@@ -2660,7 +2734,7 @@
   async function generateKey() {
     const label = prompt('Label for this API key (optional):') || 'dashboard-user';
     try {
-      const resp = await fetch(API + '/keys', {
+      const resp = await authFetch(API + '/keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ label })
@@ -2684,7 +2758,7 @@
     const content = document.getElementById('share-content');
 
     try {
-      const resp = await fetch(API + '/network');
+      const resp = await authFetch(API + '/network');
       const data = await resp.json();
       if (!data.success) return;
 
@@ -2735,7 +2809,7 @@
 
   async function loadFirewallCheck() {
     try {
-      const resp = await fetch(API + '/network/firewall-check');
+      const resp = await authFetch(API + '/network/firewall-check');
       const data = await resp.json();
       if (!data.success) return;
 
@@ -2758,7 +2832,7 @@
     toast.classList.add('show');
 
     try {
-      const resp = await fetch(API + '/network/recheck', { method: 'POST' });
+      const resp = await authFetch(API + '/network/recheck', { method: 'POST' });
       const data = await resp.json();
 
       if (data.success && data.data.portForwardingWorking) {
@@ -2852,7 +2926,7 @@
     btn.textContent = 'Testing...';
 
     try {
-      const resp = await fetch(API + '/network/duckdns', {
+      const resp = await authFetch(API + '/network/duckdns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ domain, token })
@@ -3172,7 +3246,7 @@
       progressText.textContent = `Publishing ${i + 1}-${i + batch.length} of ${filesToPublish.length}...`;
 
       try {
-        const resp = await fetch(API + '/publish-batch', {
+        const resp = await authFetch(API + '/publish-batch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -3242,7 +3316,7 @@
     }
 
     try {
-      const resp = await fetch(API + '/publish-text', {
+      const resp = await authFetch(API + '/publish-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, text, visibility })
@@ -3274,7 +3348,7 @@
 
   async function fetchMarketPrice(targetEl) {
     try {
-      const resp = await fetch(API + '/market-price?type=content');
+      const resp = await authFetch(API + '/market-price?type=content');
       const data = await resp.json();
       if (data.success && data.data.sampleSize > 0) {
         targetEl.textContent = 'Market average: $' + data.data.averagePrice.toFixed(4) + ' (' + data.data.sampleSize + ' priced items)';
@@ -3354,7 +3428,7 @@
     btn.textContent = 'Crawling...';
 
     try {
-      const resp = await fetch(API + '/publish', {
+      const resp = await authFetch(API + '/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url, visibility, price })
@@ -3393,11 +3467,11 @@
   async function loadAnalytics() {
     try {
       const [overviewRes, demandRes, supplyRes, oppRes, netRes] = await Promise.all([
-        fetch('/dashboard/api/analytics/overview').then(r => r.json()),
-        fetch('/dashboard/api/analytics/demand').then(r => r.json()),
-        fetch('/dashboard/api/analytics/supply').then(r => r.json()),
-        fetch('/dashboard/api/analytics/opportunities').then(r => r.json()),
-        fetch('/dashboard/api/analytics/network').then(r => r.json())
+        authFetch('/dashboard/api/analytics/overview').then(r => r.json()),
+        authFetch('/dashboard/api/analytics/demand').then(r => r.json()),
+        authFetch('/dashboard/api/analytics/supply').then(r => r.json()),
+        authFetch('/dashboard/api/analytics/opportunities').then(r => r.json()),
+        authFetch('/dashboard/api/analytics/network').then(r => r.json())
       ]);
 
       if (overviewRes.success) renderAnalyticsOverview(overviewRes.data);
@@ -3624,8 +3698,8 @@
   async function loadLedger() {
     try {
       const [ledgerRes, repRes] = await Promise.all([
-        fetch('/dashboard/api/ledger?limit=50').then(r => r.json()),
-        fetch('/dashboard/api/reputation').then(r => r.json())
+        authFetch('/dashboard/api/ledger?limit=50').then(r => r.json()),
+        authFetch('/dashboard/api/reputation').then(r => r.json())
       ]);
 
       if (repRes.success && repRes.data) {
@@ -3732,7 +3806,7 @@
 
   async function loadVerifyStatus() {
     try {
-      const resp = await fetch(API + '/verify/status');
+      const resp = await authFetch(API + '/verify/status');
       const data = await resp.json();
       if (!data.success) return;
       const d = data.data;
@@ -3766,7 +3840,7 @@
       const btn = document.getElementById('join-verifier-btn');
       btn.disabled = true;
       btn.textContent = 'Joining...';
-      const resp = await fetch(API + '/verify/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const resp = await authFetch(API + '/verify/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       const data = await resp.json();
       if (data.success) {
         await loadVerifyStatus();
@@ -3788,7 +3862,7 @@
     if (!verifierId) return;
     try {
       btn.disabled = true;
-      const resp = await fetch(API + '/verify/leave', {
+      const resp = await authFetch(API + '/verify/leave', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ verifier_id: verifierId })
@@ -3809,8 +3883,8 @@
   async function loadVerifyContentList() {
     try {
       const [contentResp, statusResp] = await Promise.all([
-        fetch(API + '/content?limit=50'),
-        fetch(API + '/verify/content-status')
+        authFetch(API + '/content?limit=50'),
+        authFetch(API + '/verify/content-status')
       ]);
       const contentData = await contentResp.json();
       const statusData = await statusResp.json();
@@ -3853,7 +3927,7 @@
 
   async function requestVerification(contentId) {
     try {
-      const resp = await fetch(API + '/verify/request/' + contentId, {
+      const resp = await authFetch(API + '/verify/request/' + contentId, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: '{}'
@@ -3873,7 +3947,7 @@
 
   async function loadPendingJobs() {
     try {
-      const resp = await fetch(API + '/verify/pending');
+      const resp = await authFetch(API + '/verify/pending');
       const data = await resp.json();
       if (!data.success) return;
 
@@ -3911,7 +3985,7 @@
 
     // Load content preview
     try {
-      const resp = await fetch(API + '/verify/check/' + contentId);
+      const resp = await authFetch(API + '/verify/check/' + contentId);
       const data = await resp.json();
       if (!data.success) {
         document.getElementById('verify-detail-preview').textContent = 'Could not load content: ' + (data.error || 'Unknown error');
@@ -3957,7 +4031,7 @@
     const passed = verdict === 'approve';
 
     try {
-      const resp = await fetch(API + '/verify/submit/' + currentVerifyRequestId, {
+      const resp = await authFetch(API + '/verify/submit/' + currentVerifyRequestId, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ passed, notes })
