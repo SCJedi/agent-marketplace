@@ -51,29 +51,22 @@ function log(msg) {
 }
 
 function extractContent(rawOutput) {
-  // rawOutput is the WebFetch tool_output — typically HTML or cleaned text
-  // Do basic extraction: title, text, word count
-  if (!rawOutput || typeof rawOutput !== 'string') {
+  // rawOutput is the WebFetch result — typically markdown or clean text (NOT raw HTML)
+  if (!rawOutput || typeof rawOutput !== 'string' || rawOutput.length < 5) {
     return { title: '', text: '', metadata: {} };
   }
 
-  let title = '';
   let text = rawOutput;
+  let title = '';
 
-  // Try to extract title from HTML
-  const titleMatch = rawOutput.match(/<title[^>]*>([^<]+)<\/title>/i);
-  if (titleMatch) {
-    title = titleMatch[1].trim();
-  }
-
-  // If it looks like HTML, strip tags for text
-  if (rawOutput.includes('<') && rawOutput.includes('>')) {
-    text = rawOutput
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+  // Try to extract title from first markdown heading or first line
+  const headingMatch = text.match(/^#\s+(.+)/m);
+  if (headingMatch) {
+    title = headingMatch[1].trim();
+  } else {
+    // Use first non-empty line as title
+    const firstLine = text.split('\n').find(l => l.trim().length > 0);
+    if (firstLine) title = firstLine.trim().slice(0, 100);
   }
 
   // Cap at 50k chars
@@ -186,17 +179,21 @@ async function main() {
   // Claude Code hook context may use different field names
   const toolInput = context.tool_input || context.input || {};
   const url = toolInput.url || toolInput.URL || context.url || '';
-  // tool_response is an object: { bytes, code, codeText, result, durationMs, url }
+  // tool_response can be a string OR an object: { bytes, code, codeText, result, durationMs, url }
   const rawResponse = context.tool_response || context.tool_output || {};
-  const toolOutput = typeof rawResponse === 'string' ? rawResponse : (rawResponse.result || rawResponse.output || JSON.stringify(rawResponse));
-
-  // Debug: log what fields we received
-  log(`DEBUG: Context keys: ${Object.keys(context).join(', ')}`);
-  log(`DEBUG: URL: ${url}, tool_response type: ${typeof toolOutput}`);
-  if (typeof toolOutput === 'object' && toolOutput !== null) {
-    log(`DEBUG: tool_response keys: ${Object.keys(toolOutput).join(', ')}`);
-    log(`DEBUG: tool_response preview: ${JSON.stringify(toolOutput).slice(0, 300)}`);
+  let toolOutput = '';
+  if (typeof rawResponse === 'string') {
+    toolOutput = rawResponse;
+  } else if (typeof rawResponse === 'object' && rawResponse !== null) {
+    // Try every possible field that might contain the content
+    toolOutput = rawResponse.result || rawResponse.content || rawResponse.text || rawResponse.output || rawResponse.body || '';
+    // If still empty but object has meaningful data, serialize it
+    if (!toolOutput && rawResponse.bytes > 0) {
+      toolOutput = JSON.stringify(rawResponse);
+    }
   }
+
+  log(`Hook fired for ${url} (${typeof toolOutput === 'string' ? toolOutput.length : 0} chars)`);
 
   if (!url) {
     log('No URL found in hook context');
