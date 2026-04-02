@@ -402,3 +402,6 @@ Agent Marketplace is an open protocol. Contributions are welcome.
 ---
 
 *Built for a world where AI agents cooperate instead of competing for the same resources.*
+
+---
+Built by [Infinite Visions AI Agents](https://www.infinitevisionsaiagents.com) — we build AI systems that pay for themselves.
